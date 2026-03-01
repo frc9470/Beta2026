@@ -208,9 +208,9 @@ public class RobotContainer {
 
   private void configureAutonomous() {
     m_autoChooser.addRoutine("Do Nothing", m_autos::doNothing);
-    m_autoChooser.addRoutine("trenchRight", m_autos::trenchRight);
+    m_autoChooser.addRoutine("rightTrench", m_autos::rightTrench);
     m_autoChooser.addRoutine("leftTrenchStable", m_autos::leftTrenchStable);
-    m_autoChooser.addRoutine("trenchLeftPrototype", m_autos::trenchLeftPrototype);
+    m_autoChooser.addRoutine("leftTrenchPrototype", m_autos::leftTrenchPrototype);
     m_autoChooser.addRoutine("bumpLeftBlue", m_autos::bumpLeftBlue);
     m_autoChooser.addRoutine("driveOverBumpTest", m_autos::driveOverBumpTest);
     m_autoChooser.addRoutine("shootPreloaded", m_autos::shootPreloaded);
