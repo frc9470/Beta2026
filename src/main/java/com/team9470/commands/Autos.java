@@ -121,16 +121,6 @@ public class Autos {
     return routine;
   }
 
-  public AutoRoutine figure8() {
-    AutoRoutine routine = m_autoFactory.newRoutine("figure8");
-    AutoTrajectory figure8 = routine.trajectory("testing");
-
-    routine.active().onTrue(
-        figure8.resetOdometry()
-            .andThen(figure8.cmd()));
-    return routine;
-  }
-
   public AutoRoutine driveOverBumpTest() {
     AutoRoutine routine = m_autoFactory.newRoutine("driveOverBumpTest");
     AutoTrajectory driveOverBumpTest = routine.trajectory("driveOverBumpTest");
@@ -144,6 +134,21 @@ public class Autos {
   public AutoRoutine shootPreloaded() {
     AutoRoutine routine = m_autoFactory.newRoutine("shootPreloaded");
     routine.active().onTrue(Superstructure.getInstance().aimAndShootCommand().withTimeout(5));
+    return routine;
+  }
+
+  public AutoRoutine outpostIntake() {
+    AutoRoutine routine = m_autoFactory.newRoutine("outpostIntake");
+    AutoTrajectory outpostIntake1 = routine.trajectory("outpostIntake1");
+    AutoTrajectory outpostIntake2 = routine.trajectory("outpostIntake2");
+
+    routine.active().onTrue(
+        outpostIntake1.resetOdometry()
+            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
+            .andThen(outpostIntake1.cmd())
+            .andThen(Commands.waitSeconds(3))
+            .andThen(outpostIntake2.cmd())
+            .andThen(Superstructure.getInstance().aimAndShootCommand()));
     return routine;
   }
 }
