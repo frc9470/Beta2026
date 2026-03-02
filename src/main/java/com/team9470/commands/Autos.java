@@ -24,19 +24,19 @@ public class Autos {
     return routine;
   }
 
-  public AutoRoutine trenchRight() {
-    AutoRoutine routine = m_autoFactory.newRoutine("trenchRight");
-    AutoTrajectory trenchRight = routine.trajectory("rightTrenchCycle1");
-    AutoTrajectory trenchRight2 = routine.trajectory("rightTrenchCycle2");
+  public AutoRoutine rightTrench() {
+    AutoRoutine routine = m_autoFactory.newRoutine("rightTrench");
+    AutoTrajectory rightTrench = routine.trajectory("rightTrenchCycle1");
+    AutoTrajectory rightTrench2 = routine.trajectory("rightTrenchCycle2");
 
     routine.active().onTrue(
-        trenchRight.resetOdometry()
+        rightTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
                 .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) + Math.toRadians(15)))
-            .andThen(trenchRight.cmd())
+            .andThen(rightTrench.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.5))
-            .andThen(trenchRight2.cmd())
+            .andThen(rightTrench2.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand()));
     return routine;
   }
@@ -58,19 +58,19 @@ public class Autos {
     return routine;
   }
 
-  public AutoRoutine trenchLeftPrototype() {
-    AutoRoutine routine = m_autoFactory.newRoutine("trenchLeftPrototype");
-    AutoTrajectory trenchLeft = routine.trajectory("leftTrenchCycle1");
-    AutoTrajectory trenchLeft2 = routine.trajectory("leftTrenchCycle2Prototype");
+  public AutoRoutine leftTrenchPrototype() {
+    AutoRoutine routine = m_autoFactory.newRoutine("leftTrenchPrototype");
+    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1");
+    AutoTrajectory leftTrench2 = routine.trajectory("leftTrenchCycle2Prototype");
 
     routine.active().onTrue(
-        trenchLeft.resetOdometry()
+        leftTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
                 .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) + Math.toRadians(15)))
-            .andThen(trenchLeft.cmd())
+            .andThen(leftTrench.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.5))
-            .andThen(trenchLeft2.cmd())
+            .andThen(leftTrench2.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand()));
     return routine;
   }
@@ -121,16 +121,6 @@ public class Autos {
     return routine;
   }
 
-  public AutoRoutine figure8() {
-    AutoRoutine routine = m_autoFactory.newRoutine("figure8");
-    AutoTrajectory figure8 = routine.trajectory("testing");
-
-    routine.active().onTrue(
-        figure8.resetOdometry()
-            .andThen(figure8.cmd()));
-    return routine;
-  }
-
   public AutoRoutine driveOverBumpTest() {
     AutoRoutine routine = m_autoFactory.newRoutine("driveOverBumpTest");
     AutoTrajectory driveOverBumpTest = routine.trajectory("driveOverBumpTest");
@@ -144,6 +134,21 @@ public class Autos {
   public AutoRoutine shootPreloaded() {
     AutoRoutine routine = m_autoFactory.newRoutine("shootPreloaded");
     routine.active().onTrue(Superstructure.getInstance().aimAndShootCommand().withTimeout(5));
+    return routine;
+  }
+
+  public AutoRoutine outpostIntake() {
+    AutoRoutine routine = m_autoFactory.newRoutine("outpostIntake");
+    AutoTrajectory outpostIntake1 = routine.trajectory("outpostIntake1");
+    AutoTrajectory outpostIntake2 = routine.trajectory("outpostIntake2");
+
+    routine.active().onTrue(
+        outpostIntake1.resetOdometry()
+            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
+            .andThen(outpostIntake1.cmd())
+            .andThen(Commands.waitSeconds(3))
+            .andThen(outpostIntake2.cmd())
+            .andThen(Superstructure.getInstance().aimAndShootCommand()));
     return routine;
   }
 }
