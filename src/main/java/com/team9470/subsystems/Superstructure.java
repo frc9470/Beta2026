@@ -1,5 +1,6 @@
 package com.team9470.subsystems;
 
+import com.team9470.TunerConstants;
 import com.team9470.subsystems.hopper.Hopper;
 import com.team9470.subsystems.intake.Intake;
 import com.team9470.subsystems.shooter.Shooter;
@@ -11,7 +12,11 @@ import com.team9470.subsystems.swerve.Swerve;
 
 import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveRequest;
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -44,6 +49,26 @@ public class Superstructure extends SubsystemBase {
     // Context suppliers (set by RobotContainer)
     private Supplier<Pose2d> poseSupplier = () -> new Pose2d();
     private Supplier<ChassisSpeeds> speedsSupplier = () -> new ChassisSpeeds();
+    private static final double kControlLoopDtSec = 0.02;
+    private static final double kAimKp = 12.0;
+    private static final double kAimKd = 0.5;
+    private static final double kAimAlignmentToleranceRad = Math.toRadians(3.0);
+    private static final double kAimMaxAngularRateRadPerSec = Math.toRadians(TunerConstants.maxAngularVelocity);
+    private static final double kDriveAngleDerivativeFilterWindowSec = 1.5;
+    private static final double kHoodDerivativeFilterWindowSec = 0.4;
+    private static final double kFlywheelDerivativeFilterWindowSec = 0.4;
+    private static final double kShootMaxPolarVelocityRadPerSec = 0.5;
+    private static final double kShootVelocityLimitMinRequestMps = 0.15;
+    private static final double kSotmFireSafetyMinSpeedMps = 0.35;
+    private static final double kSotmMaxAccelerationForFireMps2 = 3.5;
+    private static final double kSotmMaxOmegaForFireRadPerSec = Math.toRadians(220.0);
+    private LinearFilter driveAngleRateFilter = createMovingAverageFilter(kDriveAngleDerivativeFilterWindowSec);
+    private LinearFilter hoodRateFilter = createMovingAverageFilter(kHoodDerivativeFilterWindowSec);
+    private LinearFilter flywheelRateFilter = createMovingAverageFilter(kFlywheelDerivativeFilterWindowSec);
+    private boolean derivativeStateInitialized = false;
+    private Rotation2d lastTargetYaw = new Rotation2d();
+    private double lastHoodCommandDeg = 0.0;
+    private double lastFlywheelRpm = 0.0;
 
     private Superstructure() {
         shooter = new Shooter();
@@ -159,24 +184,158 @@ public class Superstructure extends SubsystemBase {
     }
 
     public AimResult getAimResult(boolean useRobotSideForFeedTarget) {
-        var solution = AutoAim.calculate(poseSupplier.get(), speedsSupplier.get(), useRobotSideForFeedTarget);
+        Pose2d robotPose = poseSupplier.get();
+        ChassisSpeeds robotSpeeds = speedsSupplier.get();
+        return getAimResult(robotPose, robotSpeeds, useRobotSideForFeedTarget);
+    }
 
+    public AimResult getAimResult(Pose2d robotPose, ChassisSpeeds robotSpeeds) {
+        return getAimResult(robotPose, robotSpeeds, false);
+    }
+
+    public AimResult getAimResult(Pose2d robotPose, ChassisSpeeds robotSpeeds, boolean useRobotSideForFeedTarget) {
+        var solution = AutoAim.calculate(robotPose, robotSpeeds, useRobotSideForFeedTarget);
+        AimSetpointDerivatives derivatives = computeFilteredSetpointDerivatives(solution);
         double rotError = solution.targetRobotYaw()
-                .minus(poseSupplier.get().getRotation())
+                .minus(robotPose.getRotation())
                 .getRadians();
-        double rotCmd = (rotError * 12.0) + solution.targetOmega();
-        boolean isAligned = Math.abs(rotError) < Math.toRadians(3.0);
+        double driveSetpointRateRadPerSec = derivatives.driveAngleRateRadPerSec();
+        double rotCmd = driveSetpointRateRadPerSec
+                + (rotError * kAimKp)
+                + ((driveSetpointRateRadPerSec - robotSpeeds.omegaRadiansPerSecond) * kAimKd);
+        rotCmd = MathUtil.clamp(rotCmd, -kAimMaxAngularRateRadPerSec, kAimMaxAngularRateRadPerSec);
+        boolean isAligned = Math.abs(rotError) < kAimAlignmentToleranceRad;
 
-        return new AimResult(rotCmd, isAligned, solution);
+        return new AimResult(rotCmd, isAligned, rotError, derivatives, solution);
     }
 
     /**
      * Result of aiming calculation for swerve to use.
      */
+    public record AimSetpointDerivatives(
+            double driveAngleRateRadPerSec,
+            double hoodRateDegPerSec,
+            double flywheelRateRpmPerSec) {
+    }
+
     public record AimResult(
             double rotationCommand,
             boolean isAligned,
+            double rotationErrorRad,
+            AimSetpointDerivatives derivatives,
             AutoAim.ShootingSolution solution) {
+    }
+
+    private static LinearFilter createMovingAverageFilter(double windowSec) {
+        int taps = Math.max(1, (int) Math.round(windowSec / kControlLoopDtSec));
+        return LinearFilter.movingAverage(taps);
+    }
+
+    private void resetAimSetpointDerivatives() {
+        driveAngleRateFilter = createMovingAverageFilter(kDriveAngleDerivativeFilterWindowSec);
+        hoodRateFilter = createMovingAverageFilter(kHoodDerivativeFilterWindowSec);
+        flywheelRateFilter = createMovingAverageFilter(kFlywheelDerivativeFilterWindowSec);
+        derivativeStateInitialized = false;
+        lastTargetYaw = new Rotation2d();
+        lastHoodCommandDeg = 0.0;
+        lastFlywheelRpm = 0.0;
+    }
+
+    private AimSetpointDerivatives computeFilteredSetpointDerivatives(AutoAim.ShootingSolution solution) {
+        if (!derivativeStateInitialized) {
+            derivativeStateInitialized = true;
+            lastTargetYaw = solution.targetRobotYaw();
+            lastHoodCommandDeg = solution.hoodCommandDeg();
+            lastFlywheelRpm = solution.flywheelRpm();
+            return new AimSetpointDerivatives(0.0, 0.0, 0.0);
+        }
+
+        double rawDriveAngleRateRadPerSec = solution.targetRobotYaw().minus(lastTargetYaw).getRadians() / kControlLoopDtSec;
+        double rawHoodRateDegPerSec = (solution.hoodCommandDeg() - lastHoodCommandDeg) / kControlLoopDtSec;
+        double rawFlywheelRateRpmPerSec = (solution.flywheelRpm() - lastFlywheelRpm) / kControlLoopDtSec;
+
+        double filteredDriveAngleRateRadPerSec = driveAngleRateFilter.calculate(rawDriveAngleRateRadPerSec);
+        double filteredHoodRateDegPerSec = hoodRateFilter.calculate(rawHoodRateDegPerSec);
+        double filteredFlywheelRateRpmPerSec = flywheelRateFilter.calculate(rawFlywheelRateRpmPerSec);
+
+        lastTargetYaw = solution.targetRobotYaw();
+        lastHoodCommandDeg = solution.hoodCommandDeg();
+        lastFlywheelRpm = solution.flywheelRpm();
+
+        return new AimSetpointDerivatives(
+                filteredDriveAngleRateRadPerSec,
+                filteredHoodRateDegPerSec,
+                filteredFlywheelRateRpmPerSec);
+    }
+
+    private static Translation2d limitTranslationForLaunch(
+            Pose2d robotPose,
+            AutoAim.ShootingSolution solution,
+            double requestedVxMps,
+            double requestedVyMps) {
+        Translation2d requestedVelocity = new Translation2d(requestedVxMps, requestedVyMps);
+        double requestedSpeed = requestedVelocity.getNorm();
+        if (requestedSpeed < kShootVelocityLimitMinRequestMps) {
+            return requestedVelocity;
+        }
+        if (AutoAim.isFeedModeActive(robotPose) || !solution.isValid()) {
+            return requestedVelocity;
+        }
+
+        double naiveAirTimeSec = solution.naiveAirTimeSec();
+        double distanceNoLookaheadMeters = solution.distanceNoLookaheadMeters();
+        if (!Double.isFinite(naiveAirTimeSec)
+                || !Double.isFinite(distanceNoLookaheadMeters)
+                || naiveAirTimeSec <= 1e-3
+                || distanceNoLookaheadMeters <= 1e-3) {
+            return requestedVelocity;
+        }
+
+        Translation2d robotToTarget = AutoAim.getTarget(robotPose).toTranslation2d().minus(robotPose.getTranslation());
+        if (robotToTarget.getNorm() <= 1e-3) {
+            return requestedVelocity;
+        }
+
+        double hubAngle = kShootMaxPolarVelocityRadPerSec * naiveAirTimeSec;
+        if (hubAngle <= 1e-6 || hubAngle >= Math.PI - 1e-3) {
+            return requestedVelocity;
+        }
+
+        double robotAngle = Math.abs(robotToTarget.getAngle().minus(requestedVelocity.getAngle()).getRadians());
+        double lookaheadAngle = Math.PI - robotAngle - hubAngle;
+        if (lookaheadAngle <= 1e-3) {
+            return requestedVelocity;
+        }
+
+        double lookaheadSin = Math.sin(lookaheadAngle);
+        if (Math.abs(lookaheadSin) <= 1e-4) {
+            return requestedVelocity;
+        }
+
+        double robotLookaheadDistance = distanceNoLookaheadMeters * Math.sin(hubAngle) / lookaheadSin;
+        if (!Double.isFinite(robotLookaheadDistance) || robotLookaheadDistance <= 0.0) {
+            return requestedVelocity;
+        }
+
+        double maxLinearSpeedMps = robotLookaheadDistance / naiveAirTimeSec;
+        if (!Double.isFinite(maxLinearSpeedMps) || maxLinearSpeedMps <= 0.0 || requestedSpeed <= maxLinearSpeedMps) {
+            return requestedVelocity;
+        }
+        return requestedVelocity.times(maxLinearSpeedMps / requestedSpeed);
+    }
+
+    private static boolean isSotmFireSafe(AutoAim.ShootingSolution solution, ChassisSpeeds robotSpeeds) {
+        if (solution.shooterFieldSpeedMps() < kSotmFireSafetyMinSpeedMps) {
+            // Stationary or near-stationary shot path: don't apply moving-shot inhibit.
+            return true;
+        }
+        if (solution.shooterFieldAccelMps2() > kSotmMaxAccelerationForFireMps2) {
+            return false;
+        }
+        if (Math.abs(robotSpeeds.omegaRadiansPerSecond) > kSotmMaxOmegaForFireRadPerSec) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -233,7 +392,9 @@ public class Superstructure extends SubsystemBase {
         SwerveRequest.FieldCentric aimDrive = new SwerveRequest.FieldCentric()
                 .withDriveRequestType(SwerveModule.DriveRequestType.Velocity);
         return Commands.run(() -> {
-            var result = getAimResult(useRobotSideForFeedTarget);
+            Pose2d robotPose = poseSupplier.get();
+            ChassisSpeeds robotSpeeds = speedsSupplier.get();
+            var result = getAimResult(robotPose, robotSpeeds, useRobotSideForFeedTarget);
             shooter.setSetpoint(result.solution());
             intake.setShooting(true);
             intake.setAgitating(agitate);
@@ -243,10 +404,15 @@ public class Superstructure extends SubsystemBase {
                 shooterReadyLatched.set(true);
             }
 
-            boolean canFire = result.isAligned() && result.solution().isValid() && shooterAtSetpoint;
-            double rotError = result.solution().targetRobotYaw()
-                    .minus(poseSupplier.get().getRotation())
-                    .getRadians();
+            boolean canFire = result.isAligned()
+                    && result.solution().isValid()
+                    && shooterAtSetpoint
+                    && isSotmFireSafe(result.solution(), robotSpeeds);
+            Translation2d limitedTranslation = limitTranslationForLaunch(
+                    robotPose,
+                    result.solution(),
+                    vxSupplier.get(),
+                    vySupplier.get());
 
             // Wait for initial shooter readiness, then feed continuously.
             shooter.setFiring(canFire);
@@ -254,12 +420,12 @@ public class Superstructure extends SubsystemBase {
 
             // Drive: pass through translation, auto-aim rotation (closed-loop velocity)
             swerve.setControl(aimDrive
-                    .withVelocityX(vxSupplier.get())
-                    .withVelocityY(vySupplier.get())
+                    .withVelocityX(limitedTranslation.getX())
+                    .withVelocityY(limitedTranslation.getY())
                     .withRotationalRate(result.rotationCommand()));
 
             // Telemetry
-            publishTelemetry(result.isAligned(), canFire, result.rotationCommand(), rotError);
+            publishTelemetry(result.isAligned(), canFire, result.rotationCommand(), result.rotationErrorRad());
 
         }, this, swerve).finallyDo(() -> {
             shooter.stop();
@@ -267,8 +433,12 @@ public class Superstructure extends SubsystemBase {
             intake.setShooting(false);
             intake.setAgitating(false);
             shooterReadyLatched.set(false);
+            resetAimSetpointDerivatives();
             swerve.setControl(aimDrive.withVelocityX(0).withVelocityY(0).withRotationalRate(0));
-        }).beforeStarting(() -> shooterReadyLatched.set(false))
+        }).beforeStarting(() -> {
+            shooterReadyLatched.set(false);
+            resetAimSetpointDerivatives();
+        })
                 .withName("Superstructure AimAndShoot");
     }
 

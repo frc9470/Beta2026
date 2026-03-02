@@ -7,6 +7,7 @@ import com.team9470.subsystems.shooter.ShooterConstants;
 import com.team9470.subsystems.shooter.ShooterInterpolationMaps;
 import com.team9470.subsystems.shooter.ShotParameter;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import static edu.wpi.first.units.Units.*;
@@ -50,6 +51,11 @@ public class AutoAim {
             double hoodCommandDeg,
             double flywheelRpm,
             double targetOmega,
+            double distanceMeters,
+            double distanceNoLookaheadMeters,
+            double naiveAirTimeSec,
+            double shooterFieldSpeedMps,
+            double shooterFieldAccelMps2,
             boolean isValid) {
     }
 
@@ -121,7 +127,20 @@ public class AutoAim {
     }
 
     // Number of iterations for the SOTM lookahead convergence loop.
-    private static final int LOOKAHEAD_ITERATIONS = 5;
+    private static final int LOOKAHEAD_ITERATIONS = 20;
+    // Pose lead to reduce control/actuation latency error.
+    private static final double CONTROL_PHASE_DELAY_SEC = 0.03;
+    // Blend out SOTM compensation near standstill to protect stationary shots.
+    private static final double SOTM_BLEND_START_MPS = 0.15;
+    private static final double SOTM_BLEND_FULL_MPS = 0.60;
+    // Higher-risk moving-shot terms (acceleration + rotational exit velocity).
+    private static final double NOMINAL_LOOP_DT_SEC = 0.02;
+    private static final double MAX_ACCELERATION_MPS2 = 6.0;
+    private static final double MAX_ACCEL_LOOKAHEAD_SEC = 0.35;
+    private static final double ACCEL_FILTER_ALPHA = 0.25;
+    private static Translation2d lastShooterFieldVelocity = new Translation2d();
+    private static Translation2d filteredShooterFieldAcceleration = new Translation2d();
+    private static boolean motionHistoryInitialized = false;
 
     /**
      * Calculates the shooting solution with Shoot-on-the-Move (SOTM) support.
@@ -149,26 +168,64 @@ public class AutoAim {
             boolean useRobotSideForFeedTarget) {
         if (robotPose == null || robotSpeeds == null) {
             publishMapTelemetry(0.0, null, AimMode.HUB, false, 0.0);
-            return new ShootingSolution(new Rotation2d(), 0.0, 0.0, 0.0, false);
+            return new ShootingSolution(new Rotation2d(), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false);
         }
 
-        double robotXBlueMeters = getRobotXBlueMeters(robotPose);
-        AimMode mode = getAimMode(robotPose);
+        // Predict near-future pose to account for control/actuation latency.
+        Pose2d predictedPose = robotPose.exp(new Twist2d(
+                robotSpeeds.vxMetersPerSecond * CONTROL_PHASE_DELAY_SEC,
+                robotSpeeds.vyMetersPerSecond * CONTROL_PHASE_DELAY_SEC,
+                robotSpeeds.omegaRadiansPerSecond * CONTROL_PHASE_DELAY_SEC));
+
+        double robotXBlueMeters = getRobotXBlueMeters(predictedPose);
+        AimMode mode = getAimMode(predictedPose);
         boolean feedModeActive = mode == AimMode.FEED;
-        Translation3d baseTarget3d = getTarget(robotPose, useRobotSideForFeedTarget);
+        Translation3d baseTarget3d = getTarget(predictedPose, useRobotSideForFeedTarget);
         Translation2d baseTargetXY = baseTarget3d.toTranslation2d();
 
         // Shooter exit point on the field (accounts for robot rotation).
         Translation2d shooterOffsetXY = new Translation2d(SHOOTER_OFFSET.getX(), SHOOTER_OFFSET.getY())
-                .rotateBy(robotPose.getRotation());
-        Translation2d shooterExitXY = robotPose.getTranslation().plus(shooterOffsetXY);
+                .rotateBy(predictedPose.getRotation());
+        Translation2d shooterExitXY = predictedPose.getTranslation().plus(shooterOffsetXY);
 
         // Convert chassis speeds to field-relative velocity (Translation2d).
         ChassisSpeeds fieldSpeeds = ChassisSpeeds.fromRobotRelativeSpeeds(
-                robotSpeeds, robotPose.getRotation());
-        Translation2d fieldVelocity = new Translation2d(
+                robotSpeeds, predictedPose.getRotation());
+        Translation2d fieldLinearVelocity = new Translation2d(
                 fieldSpeeds.vxMetersPerSecond,
                 fieldSpeeds.vyMetersPerSecond);
+        double fieldSpeedMps = fieldLinearVelocity.getNorm();
+        double sotmBlend = MathUtil.clamp(
+                (fieldSpeedMps - SOTM_BLEND_START_MPS) / (SOTM_BLEND_FULL_MPS - SOTM_BLEND_START_MPS),
+                0.0,
+                1.0);
+        // Include tangential velocity from robot yaw at the shooter exit point.
+        Translation2d rotationalVelocityAtShooter = new Translation2d(
+                -robotSpeeds.omegaRadiansPerSecond * shooterOffsetXY.getY(),
+                robotSpeeds.omegaRadiansPerSecond * shooterOffsetXY.getX());
+        Translation2d shooterFieldVelocity = fieldLinearVelocity.plus(rotationalVelocityAtShooter.times(sotmBlend));
+
+        Translation2d shooterFieldAcceleration = new Translation2d();
+        if (motionHistoryInitialized) {
+            Translation2d rawAcceleration = shooterFieldVelocity.minus(lastShooterFieldVelocity).div(NOMINAL_LOOP_DT_SEC);
+            rawAcceleration = clampVectorNorm(rawAcceleration, MAX_ACCELERATION_MPS2);
+            filteredShooterFieldAcceleration = filteredShooterFieldAcceleration.times(1.0 - ACCEL_FILTER_ALPHA)
+                    .plus(rawAcceleration.times(ACCEL_FILTER_ALPHA));
+            shooterFieldAcceleration = filteredShooterFieldAcceleration;
+        } else {
+            motionHistoryInitialized = true;
+            filteredShooterFieldAcceleration = new Translation2d();
+            shooterFieldAcceleration = filteredShooterFieldAcceleration;
+        }
+        lastShooterFieldVelocity = shooterFieldVelocity;
+        double shooterFieldSpeedMps = shooterFieldVelocity.getNorm();
+        double shooterFieldAccelMps2 = shooterFieldAcceleration.getNorm();
+
+        double distanceNoLookaheadMeters = shooterExitXY.getDistance(baseTargetXY);
+        double naiveAirTimeSec = ShooterInterpolationMaps.getAirTime(distanceNoLookaheadMeters);
+        if (!Double.isFinite(naiveAirTimeSec) || naiveAirTimeSec < 0.0) {
+            naiveAirTimeSec = 0.0;
+        }
 
         // ---- Iterative lookahead (ported from Ninja RobotState) ----
         // Each iteration: compute distance → look up air time → shift the
@@ -182,7 +239,12 @@ public class AutoAim {
             if (!Double.isFinite(airTime) || airTime < 0.0) {
                 airTime = 0.0;
             }
-            lookaheadTarget = baseTargetXY.minus(fieldVelocity.times(airTime));
+            Translation2d offset = shooterFieldVelocity.times(airTime * sotmBlend);
+            if (sotmBlend > 0.0) {
+                double accelTime = Math.min(airTime, MAX_ACCEL_LOOKAHEAD_SEC);
+                offset = offset.plus(shooterFieldAcceleration.times(0.5 * accelTime * accelTime * sotmBlend));
+            }
+            lookaheadTarget = baseTargetXY.minus(offset);
         }
 
         // Distance and shot parameter lookup use the converged lookahead target.
@@ -193,22 +255,33 @@ public class AutoAim {
         publishMapTelemetry(distanceMeters, shotParameter.orElse(null), mode, feedModeActive, robotXBlueMeters);
 
         // Yaw to converged lookahead target.
-        double dx = lookaheadTarget.getX() - robotPose.getX();
-        double dy = lookaheadTarget.getY() - robotPose.getY();
+        double dx = lookaheadTarget.getX() - predictedPose.getX();
+        double dy = lookaheadTarget.getY() - predictedPose.getY();
         Rotation2d targetRobotYaw = new Rotation2d(dx, dy);
 
         if (shotParameter.isEmpty() || !shotParameter.get().isValid()) {
-            return new ShootingSolution(targetRobotYaw, 0.0, 0.0, 0.0, false);
+            return new ShootingSolution(
+                    targetRobotYaw,
+                    0.0,
+                    0.0,
+                    0.0,
+                    distanceMeters,
+                    distanceNoLookaheadMeters,
+                    naiveAirTimeSec,
+                    shooterFieldSpeedMps,
+                    shooterFieldAccelMps2,
+                    false);
         }
 
         // ---- Angular feedforward (targetOmega) ----
         // Approximate dθ/dt of the lookahead angle due to robot velocity so
         // the swerve rotation controller can track the moving setpoint.
         // For a static target, dθ/dt = (vx*dy - vy*dx) / r^2.
-        double yawDistanceMeters = Math.max(robotPose.getTranslation().getDistance(lookaheadTarget), 0.5);
+        double yawDistanceMeters = Math.max(predictedPose.getTranslation().getDistance(lookaheadTarget), 0.5);
         double losAngle = targetRobotYaw.getRadians();
-        double targetOmega = (fieldVelocity.getX() * Math.sin(losAngle)
-                - fieldVelocity.getY() * Math.cos(losAngle)) / yawDistanceMeters;
+        double targetOmega = (shooterFieldVelocity.getX() * Math.sin(losAngle)
+                - shooterFieldVelocity.getY() * Math.cos(losAngle)) / yawDistanceMeters;
+        targetOmega *= sotmBlend;
 
         ShotParameter shot = shotParameter.get();
         return new ShootingSolution(
@@ -216,7 +289,20 @@ public class AutoAim {
                 shot.hoodCommandDeg(),
                 shot.flywheelRpm(),
                 targetOmega,
+                distanceMeters,
+                distanceNoLookaheadMeters,
+                naiveAirTimeSec,
+                shooterFieldSpeedMps,
+                shooterFieldAccelMps2,
                 true);
+    }
+
+    private static Translation2d clampVectorNorm(Translation2d vector, double maxNorm) {
+        double norm = vector.getNorm();
+        if (norm <= maxNorm || norm <= 1e-9) {
+            return vector;
+        }
+        return vector.times(maxNorm / norm);
     }
 
     private static AimMode getAimMode(Pose2d robotPose) {

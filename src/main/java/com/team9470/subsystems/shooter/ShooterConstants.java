@@ -37,8 +37,8 @@ public class ShooterConstants {
         public static final Angle kMaxHoodAngle = Degrees.of(45.0); // steepest shot
 
         // Field Geometry
-        public static final Distance kShooterOffsetX = Meters.of(0.2); // Forward from robot center
-        public static final Distance kShooterOffsetZ = Meters.of(0.5); // Up from center
+        public static final Distance kShooterOffsetX = Inches.of(6.0); // Forward from robot center
+        public static final Distance kShooterOffsetZ = Inches.of(19.0); // Up from center
 
         // ==================== HOMING ====================
         // Hood homes to hardstop at minimum launch angle.
