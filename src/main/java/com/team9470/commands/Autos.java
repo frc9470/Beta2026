@@ -50,7 +50,7 @@ public class Autos {
         leftTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
-                .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) + Math.toRadians(15)))
+                .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) + Math.toRadians(45)))
             .andThen(leftTrench.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.5))
             .andThen(leftTrench2.cmd())
