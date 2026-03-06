@@ -213,6 +213,7 @@ public class RobotContainer {
     m_autoChooser.addRoutine("rightTrench", m_autos::rightTrench);
     m_autoChooser.addRoutine("leftTrenchStable", m_autos::leftTrenchStable);
     m_autoChooser.addRoutine("leftTrenchPrototype", m_autos::leftTrenchPrototype);
+    m_autoChooser.addRoutine("rightTrenchPrototype", m_autos::rightTrenchPrototype);
     m_autoChooser.addRoutine("bumpLeftBlue", m_autos::bumpLeftBlue);
     m_autoChooser.addRoutine("driveOverBumpTest", m_autos::driveOverBumpTest);
     m_autoChooser.addRoutine("shootPreloaded", m_autos::shootPreloaded);

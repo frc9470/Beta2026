@@ -41,6 +41,26 @@ public class Autos {
     return routine;
   }
 
+  public AutoRoutine rightTrenchPrototype() {
+    AutoRoutine routine = m_autoFactory.newRoutine("rightTrenchPrototype");
+    AutoTrajectory rightTrench = routine.trajectory("rightTrenchCycle1Prototype");
+    AutoTrajectory rightTrench2 = routine.trajectory("rightTrenchCycle2Prototype");
+    AutoTrajectory rightTrench3 = routine.trajectory("rightTrenchToCenter");
+
+    routine.active().onTrue(
+        rightTrench.resetOdometry()
+            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
+            // .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
+            // .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) +
+            // Math.toRadians(15)))
+            .andThen(rightTrench.cmd())
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.5))
+            .andThen(rightTrench2.cmd())
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4))
+            .andThen(rightTrench3.cmd()));
+    return routine;
+  }
+
   public AutoRoutine leftTrenchStable() {
     AutoRoutine routine = m_autoFactory.newRoutine("leftTrenchStable");
     AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1");
@@ -49,8 +69,9 @@ public class Autos {
     routine.active().onTrue(
         leftTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
-                .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) + Math.toRadians(45)))
+            // .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
+            // .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) +
+            // Math.toRadians(45)))
             .andThen(leftTrench.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.5))
             .andThen(leftTrench2.cmd())
@@ -60,18 +81,21 @@ public class Autos {
 
   public AutoRoutine leftTrenchPrototype() {
     AutoRoutine routine = m_autoFactory.newRoutine("leftTrenchPrototype");
-    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1");
+    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1Prototype");
     AutoTrajectory leftTrench2 = routine.trajectory("leftTrenchCycle2Prototype");
+    AutoTrajectory leftTrench3 = routine.trajectory("leftTrenchToCenter");
 
     routine.active().onTrue(
         leftTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
-                .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) + Math.toRadians(15)))
+            // .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
+            // .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) +
+            // Math.toRadians(15)))
             .andThen(leftTrench.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.5))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.25))
             .andThen(leftTrench2.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand()));
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4))
+            .andThen(leftTrench3.cmd()));
     return routine;
   }
 
