@@ -48,8 +48,6 @@ public final class ShooterInterpolationMaps {
         addFeedPoint(4.0, 34.0, 2300.0);
         addFeedPoint(4.5, 34.0, 2530.0);
         addFeedPoint(5.0, 37.0, 2800.0);
-
-        // Extended long-range feed point.
         addFeedPoint(6.0, 39.0, 3000.0);
     }
 

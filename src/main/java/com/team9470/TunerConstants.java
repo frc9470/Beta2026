@@ -60,7 +60,7 @@ public class TunerConstants {
         private static final SwerveModuleConstants.SteerFeedbackType kSteerFeedbackType = SwerveModuleConstants.SteerFeedbackType.FusedCANcoder;
         // The stator current at which the wheels start to slip;
         // This needs to be tuned to your individual robot
-        private static final Current kSlipCurrent = Amps.of(100);
+        private static final Current kSlipCurrent = Amps.of(80);
         // Keep drive/steer limits explicit to avoid brownouts while preserving
         // traction.
         private static final Current kSteerStatorCurrentLimit = Amps.of(60);
