@@ -35,7 +35,7 @@ public class IntakeConstants {
     public static final double kHomingVoltage = 3.0; // Positive = toward retract/up
     public static final double kStallCurrentThreshold = 20.0; // Amps
     public static final double kStallTimeThreshold = 0.1; // Seconds at stall
-    public static final Angle kHomePosition = Degrees.of(115.0); // Angle at hardstop
+    public static final Angle kHomePosition = Degrees.of(120.0); // Angle at hardstop
 
     // Motor Configs
     public static final TalonFXConfiguration kPivotConfig = new TalonFXConfiguration();
