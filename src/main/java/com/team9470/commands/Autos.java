@@ -26,7 +26,7 @@ public class Autos {
 
   public AutoRoutine rightTrench() {
     AutoRoutine routine = m_autoFactory.newRoutine("rightTrench");
-    AutoTrajectory rightTrench = routine.trajectory("rightTrenchCycle1");
+    AutoTrajectory rightTrench = routine.trajectory("rightTrenchCycle1Prototype");
     AutoTrajectory rightTrench2 = routine.trajectory("rightTrenchCycle2");
 
     routine.active().onTrue(
@@ -61,7 +61,7 @@ public class Autos {
 
   public AutoRoutine leftTrenchStable() {
     AutoRoutine routine = m_autoFactory.newRoutine("leftTrenchStable");
-    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1");
+    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1Prototype");
     AutoTrajectory leftTrench2 = routine.trajectory("leftTrenchCycle2Stable");
 
     routine.active().onTrue(
