@@ -12,15 +12,25 @@ public final class VisionConstants {
 
     public static final Transform3d FRONT_LEFT_CAMERA_OFFSET =
             new Transform3d(
-                    Units.Inches.of(+12.290427),
-                    Units.Inches.of(10.710),
-                    Units.Inches.of(+8.803138),
-                    new Rotation3d(0, Math.toRadians(-28.125), Math.toRadians(-45)));
+                    Units.Inches.of(+13.220055),          // x
+                    Units.Inches.of(-10.073682),          // y
+                    Units.Inches.of(+18.904),             // z
+                    new Rotation3d(
+                        0,                      // roll
+                        Math.toRadians(+19.657357),  // pitch
+                        Math.toRadians(40)    // yaw
+                    )
+            );
 
     public static final Transform3d FRONT_RIGHT_CAMERA_OFFSET =
             new Transform3d(
-                    Units.Inches.of(+12.290427),
-                    Units.Inches.of(-10.710),
-                    Units.Inches.of(+8.803138),
-                    new Rotation3d(0, Math.toRadians(-28.125), Math.toRadians(45)));
+                    Units.Inches.of(+13.220055),          // x
+                    Units.Inches.of(+10.073682),          // y
+                    Units.Inches.of(+18.904),             // z
+                    new Rotation3d(
+                        0,                      // roll
+                        Math.toRadians(+19.657357),  // pitch
+                        Math.toRadians(-40)          // yaw
+                    )
+            );
 }
