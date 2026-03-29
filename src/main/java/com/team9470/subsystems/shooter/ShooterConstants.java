@@ -16,14 +16,14 @@ public class ShooterConstants {
         // FLYWHEEL_3, FLYWHEEL_4, HOOD_MOTOR)
 
         // Physical Constants
-        public static final double kFlywheelGearRatio = 1.5;
+        public static final double kFlywheelGearRatio = 1.444;
         public static final double kFlywheelEfficiency = 0.6;
         public static final double kMaxMotorSpeed = 100.0; // RPS (~6000 RPM Kraken)
 
         // 9 lb*in^2 = 9 * 0.0002926397 ~= 0.002634 kg*m^2
         public static final MomentOfInertia kFlywheelMOI = KilogramSquareMeters.of(0.002634);
 
-        public static final double kHoodGearRatio = 38.0; // 2:1 stage × 9.5:1 (10t pinion → 95t gear)
+        public static final double kHoodGearRatio = 41.25; // 2:1 stage × 9.5:1 (10t pinion → 95t gear)
         public static final MomentOfInertia kHoodMOI = KilogramSquareMeters.of(0.05);
         public static final Distance kHoodLength = Meters.of(0.2);
         public static final Mass kHoodMass = Kilograms.of(2.0);

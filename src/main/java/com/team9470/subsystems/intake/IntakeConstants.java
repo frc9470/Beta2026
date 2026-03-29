@@ -11,13 +11,13 @@ public class IntakeConstants {
     // NOTE: CAN IDs are in Ports.java (INTAKE_PIVOT, INTAKE_ROLLER)
 
     // Physical Constants
-    public static final double kPivotGearRatio = 22.5;
+    public static final double kPivotGearRatio = 20.0;
 
     // Setpoints
-    public static final Angle kDeployAngle = Degrees.of(-20.0); // Down/Floor
+    public static final Angle kDeployAngle = Degrees.of(6.0); // Down/Floor
     public static final Angle kDeployHighAngle = Degrees.of(-10.0); // Deploy +10 deg
     public static final Angle kAgitateMiddleAngle = Degrees.of(50.0); // Slightly higher mid position for shot agitation
-    public static final Angle kRetractAngle = Degrees.of(90.0); // Up/Stowed
+    public static final Angle kRetractAngle = Degrees.of(126.0); // Up/Stowed
     public static final double kRollerVoltage = -9.6;
     public static final double kAgitateFrequencyHz = 1.0;
     public static final double kShootAgitationDelaySec = 0.5;
@@ -35,7 +35,7 @@ public class IntakeConstants {
     public static final double kHomingVoltage = 3.0; // Positive = toward retract/up
     public static final double kStallCurrentThreshold = 20.0; // Amps
     public static final double kStallTimeThreshold = 0.1; // Seconds at stall
-    public static final Angle kHomePosition = Degrees.of(120.0); // Angle at hardstop
+    public static final Angle kHomePosition = Degrees.of(126.0); // Angle at hardstop
 
     // Motor Configs
     public static final TalonFXConfiguration kPivotConfig = new TalonFXConfiguration();
@@ -69,6 +69,7 @@ public class IntakeConstants {
         kPivotConfig.Slot0.kG = 0.5; // Gravity hold
         kPivotConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
         kPivotConfig.Feedback.SensorToMechanismRatio = kPivotGearRatio;
+        kPivotConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
         kPivotConfig.MotionMagic.MotionMagicCruiseVelocity = 4.0; // rad/s
         kPivotConfig.MotionMagic.MotionMagicAcceleration = 8.0; // rad/s^2
         kPivotConfig.MotionMagic.MotionMagicJerk = 0;
@@ -84,6 +85,7 @@ public class IntakeConstants {
                 .withSupplyCurrentLimitEnable(true);
 
         kRightRollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+
         kRightRollerConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
         kRightRollerConfig.CurrentLimits
                 .withSupplyCurrentLimit(kRollerSupplyCurrentLimit)

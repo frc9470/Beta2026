@@ -4,7 +4,7 @@ import com.team254.lib.drivers.CanDeviceId;
 
 public class Ports {
     // CANivore bus name
-    public static final String CANIVORE = "canivore";
+    public static final String CANIVORE = "domain expansion: can bus";
 
     // ==================== SHOOTER ====================
     public static final CanDeviceId FLYWHEEL_1 = new CanDeviceId(1, CANIVORE);

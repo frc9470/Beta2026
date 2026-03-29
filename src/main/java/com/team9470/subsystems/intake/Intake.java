@@ -1,8 +1,12 @@
 package com.team9470.subsystems.intake;
 
+import com.ctre.phoenix6.configs.MotionMagicConfigs;
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.MotionMagicVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.team254.lib.drivers.TalonFXFactory;
 import com.team254.lib.drivers.TalonUtil;
 
@@ -14,6 +18,7 @@ import com.team9470.telemetry.structs.IntakeSnapshot;
 
 import edu.wpi.first.units.measure.Angle;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -54,6 +59,12 @@ public class Intake extends SubsystemBase {
     private boolean needsHoming = true;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
+    // Cached SmartDashboard gain values (pivot Slot0)
+    private double cachedPivotKP, cachedPivotKI, cachedPivotKD;
+    private double cachedPivotKV, cachedPivotKA, cachedPivotKG;
+    // Cached SmartDashboard MotionMagic values
+    private double cachedMMCruiseVel, cachedMMAccel, cachedMMJerk;
+
     private static final int STATE_HOMING = 0;
     private static final int STATE_RETRACTED = 1;
     private static final int STATE_DEPLOYED = 2;
@@ -68,7 +79,12 @@ public class Intake extends SubsystemBase {
         pivot.setPosition(0);
 
         TalonUtil.applyAndCheckConfiguration(leftRoller, IntakeConstants.kLeftRollerConfig);
-        TalonUtil.applyAndCheckConfiguration(leftRoller, IntakeConstants.kRightRollerConfig);
+        TalonUtil.applyAndCheckConfiguration(rightRoller, IntakeConstants.kRightRollerConfig);
+
+        // rightRoller follows leftRoller with opposed direction (they have opposite inversions)
+        rightRoller.setControl(new Follower(leftRoller.getDeviceID(), MotorAlignmentValue.Opposed));
+
+        initSmartDashboardGains();
     }
 
     // --- Commands ---
@@ -153,15 +169,73 @@ public class Intake extends SubsystemBase {
     /** Reverse rollers while held (for clearing jams). */
     public Command getOuttakeCommand() {
         return this.startEnd(
-                () -> {
-                    leftRoller.setControl(voltRequest.withOutput(-IntakeConstants.kRollerVoltage));
-                    rightRoller.setControl(voltRequest.withOutput(-IntakeConstants.kRollerVoltage));
-                },
-                () -> {
-                    leftRoller.setControl(voltRequest.withOutput(0));
-                    rightRoller.setControl(voltRequest.withOutput(0));
-                })
+                () -> leftRoller.setControl(voltRequest.withOutput(-IntakeConstants.kRollerVoltage)),
+                () -> leftRoller.setControl(voltRequest.withOutput(0)))
                 .withName("Intake Outtake");
+    }
+
+    // ==================== SmartDashboard PID Tuning ====================
+
+    private void initSmartDashboardGains() {
+        // Pivot Slot0 gains from config
+        cachedPivotKP = IntakeConstants.kPivotConfig.Slot0.kP;
+        cachedPivotKI = IntakeConstants.kPivotConfig.Slot0.kI;
+        cachedPivotKD = IntakeConstants.kPivotConfig.Slot0.kD;
+        cachedPivotKV = IntakeConstants.kPivotConfig.Slot0.kV;
+        cachedPivotKA = IntakeConstants.kPivotConfig.Slot0.kA;
+        cachedPivotKG = IntakeConstants.kPivotConfig.Slot0.kG;
+        SmartDashboard.putNumber("IntakePivot/kP", cachedPivotKP);
+        SmartDashboard.putNumber("IntakePivot/kI", cachedPivotKI);
+        SmartDashboard.putNumber("IntakePivot/kD", cachedPivotKD);
+        SmartDashboard.putNumber("IntakePivot/kV", cachedPivotKV);
+        SmartDashboard.putNumber("IntakePivot/kA", cachedPivotKA);
+        SmartDashboard.putNumber("IntakePivot/kG", cachedPivotKG);
+
+        // MotionMagic params
+        cachedMMCruiseVel = IntakeConstants.kPivotConfig.MotionMagic.MotionMagicCruiseVelocity;
+        cachedMMAccel = IntakeConstants.kPivotConfig.MotionMagic.MotionMagicAcceleration;
+        cachedMMJerk = IntakeConstants.kPivotConfig.MotionMagic.MotionMagicJerk;
+        SmartDashboard.putNumber("IntakePivot/MM_CruiseVel", cachedMMCruiseVel);
+        SmartDashboard.putNumber("IntakePivot/MM_Accel", cachedMMAccel);
+        SmartDashboard.putNumber("IntakePivot/MM_Jerk", cachedMMJerk);
+    }
+
+    private void updateSmartDashboardGains() {
+        // --- Pivot Slot0 gains ---
+        double pivotKP = SmartDashboard.getNumber("IntakePivot/kP", cachedPivotKP);
+        double pivotKI = SmartDashboard.getNumber("IntakePivot/kI", cachedPivotKI);
+        double pivotKD = SmartDashboard.getNumber("IntakePivot/kD", cachedPivotKD);
+        double pivotKV = SmartDashboard.getNumber("IntakePivot/kV", cachedPivotKV);
+        double pivotKA = SmartDashboard.getNumber("IntakePivot/kA", cachedPivotKA);
+        double pivotKG = SmartDashboard.getNumber("IntakePivot/kG", cachedPivotKG);
+        if (pivotKP != cachedPivotKP || pivotKI != cachedPivotKI || pivotKD != cachedPivotKD
+                || pivotKV != cachedPivotKV || pivotKA != cachedPivotKA || pivotKG != cachedPivotKG) {
+            cachedPivotKP = pivotKP;
+            cachedPivotKI = pivotKI;
+            cachedPivotKD = pivotKD;
+            cachedPivotKV = pivotKV;
+            cachedPivotKA = pivotKA;
+            cachedPivotKG = pivotKG;
+            Slot0Configs newPivotGains = new Slot0Configs()
+                    .withKP(pivotKP).withKI(pivotKI).withKD(pivotKD)
+                    .withKV(pivotKV).withKA(pivotKA).withKG(pivotKG);
+            pivot.getConfigurator().apply(newPivotGains);
+        }
+
+        // --- MotionMagic params ---
+        double mmCruiseVel = SmartDashboard.getNumber("IntakePivot/MM_CruiseVel", cachedMMCruiseVel);
+        double mmAccel = SmartDashboard.getNumber("IntakePivot/MM_Accel", cachedMMAccel);
+        double mmJerk = SmartDashboard.getNumber("IntakePivot/MM_Jerk", cachedMMJerk);
+        if (mmCruiseVel != cachedMMCruiseVel || mmAccel != cachedMMAccel || mmJerk != cachedMMJerk) {
+            cachedMMCruiseVel = mmCruiseVel;
+            cachedMMAccel = mmAccel;
+            cachedMMJerk = mmJerk;
+            MotionMagicConfigs newMM = new MotionMagicConfigs()
+                    .withMotionMagicCruiseVelocity(mmCruiseVel)
+                    .withMotionMagicAcceleration(mmAccel)
+                    .withMotionMagicJerk(mmJerk);
+            pivot.getConfigurator().apply(newMM);
+        }
     }
 
     @Override
@@ -170,7 +244,6 @@ public class Intake extends SubsystemBase {
             // Drive toward retract hardstop
             pivot.setControl(voltRequest.withOutput(IntakeConstants.kHomingVoltage));
             leftRoller.setControl(voltRequest.withOutput(0));
-            rightRoller.setControl(voltRequest.withOutput(0));
 
             // Check for stall (hit hardstop): high current AND low velocity
             double current = pivot.getSupplyCurrent().getValueAsDouble();
@@ -225,7 +298,6 @@ public class Intake extends SubsystemBase {
         // Roller control
         double rollerVolts = (deployed || deployHigh || effectiveAgitating) ? IntakeConstants.kRollerVoltage : 0.0;
         leftRoller.setControl(voltRequest.withOutput(rollerVolts));
-        rightRoller.setControl(voltRequest.withOutput(rollerVolts));
 
         // --- Telemetry ---
         double currentPositionRot = pivot.getPosition().getValueAsDouble();
@@ -266,6 +338,8 @@ public class Intake extends SubsystemBase {
         if (Robot.isSimulation()) {
             IntakeSimulation.getInstance().updateVisualization(currentPositionRot);
         }
+
+        updateSmartDashboardGains();
     }
 
     @Override
