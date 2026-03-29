@@ -38,7 +38,8 @@ public class Intake extends SubsystemBase {
 
     // Hardware
     private final TalonFX pivot = TalonFXFactory.createDefaultTalon(Ports.INTAKE_PIVOT);
-    private final TalonFX roller = TalonFXFactory.createDefaultTalon(Ports.INTAKE_ROLLER);
+    private final TalonFX leftRoller = TalonFXFactory.createDefaultTalon(Ports.INTAKE_ROLLER_LEFT);
+    private final TalonFX rightRoller = TalonFXFactory.createDefaultTalon(Ports.INTAKE_ROLLER_RIGHT);
 
     // Controls
     private final MotionMagicVoltage mmRequest = new MotionMagicVoltage(0).withSlot(0);
@@ -66,7 +67,8 @@ public class Intake extends SubsystemBase {
         TalonUtil.applyAndCheckConfiguration(pivot, IntakeConstants.kPivotConfig);
         pivot.setPosition(0);
 
-        TalonUtil.applyAndCheckConfiguration(roller, IntakeConstants.kRollerConfig);
+        TalonUtil.applyAndCheckConfiguration(leftRoller, IntakeConstants.kLeftRollerConfig);
+        TalonUtil.applyAndCheckConfiguration(leftRoller, IntakeConstants.kRightRollerConfig);
     }
 
     // --- Commands ---
@@ -151,8 +153,14 @@ public class Intake extends SubsystemBase {
     /** Reverse rollers while held (for clearing jams). */
     public Command getOuttakeCommand() {
         return this.startEnd(
-                () -> roller.setControl(voltRequest.withOutput(-IntakeConstants.kRollerVoltage)),
-                () -> roller.setControl(voltRequest.withOutput(0)))
+                () -> {
+                    leftRoller.setControl(voltRequest.withOutput(-IntakeConstants.kRollerVoltage));
+                    rightRoller.setControl(voltRequest.withOutput(-IntakeConstants.kRollerVoltage));
+                },
+                () -> {
+                    leftRoller.setControl(voltRequest.withOutput(0));
+                    rightRoller.setControl(voltRequest.withOutput(0));
+                })
                 .withName("Intake Outtake");
     }
 
@@ -161,7 +169,8 @@ public class Intake extends SubsystemBase {
         if (needsHoming) {
             // Drive toward retract hardstop
             pivot.setControl(voltRequest.withOutput(IntakeConstants.kHomingVoltage));
-            roller.setControl(voltRequest.withOutput(0));
+            leftRoller.setControl(voltRequest.withOutput(0));
+            rightRoller.setControl(voltRequest.withOutput(0));
 
             // Check for stall (hit hardstop): high current AND low velocity
             double current = pivot.getSupplyCurrent().getValueAsDouble();
@@ -185,7 +194,8 @@ public class Intake extends SubsystemBase {
                     current,
                     IntakeConstants.kHomingVoltage,
                     0.0,
-                    roller.getSupplyCurrent().getValueAsDouble()));
+                    // TODO: Make it check from both rollers.
+                    leftRoller.getSupplyCurrent().getValueAsDouble()));
             return;
         }
 
@@ -214,7 +224,8 @@ public class Intake extends SubsystemBase {
 
         // Roller control
         double rollerVolts = (deployed || deployHigh || effectiveAgitating) ? IntakeConstants.kRollerVoltage : 0.0;
-        roller.setControl(voltRequest.withOutput(rollerVolts));
+        leftRoller.setControl(voltRequest.withOutput(rollerVolts));
+        rightRoller.setControl(voltRequest.withOutput(rollerVolts));
 
         // --- Telemetry ---
         double currentPositionRot = pivot.getPosition().getValueAsDouble();
@@ -248,7 +259,8 @@ public class Intake extends SubsystemBase {
                 pivot.getSupplyCurrent().getValueAsDouble(),
                 pivot.getMotorVoltage().getValueAsDouble(),
                 rollerVolts,
-                roller.getSupplyCurrent().getValueAsDouble()));
+                // TODO: Make it publish both left and right roller.
+                leftRoller.getSupplyCurrent().getValueAsDouble()));
 
         // Update visualization (works in both real and sim)
         if (Robot.isSimulation()) {
@@ -258,7 +270,8 @@ public class Intake extends SubsystemBase {
 
     @Override
     public void simulationPeriodic() {
-        IntakeSimulation.getInstance().update(pivot, roller, deployed || deployHigh || isAgitationActive());
+        // TODO: Make it simulate both left and right roller.
+        IntakeSimulation.getInstance().update(pivot, leftRoller, deployed || deployHigh || isAgitationActive());
     }
 
     // --- Accessors for physics ---

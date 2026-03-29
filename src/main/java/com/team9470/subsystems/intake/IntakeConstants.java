@@ -39,7 +39,8 @@ public class IntakeConstants {
 
     // Motor Configs
     public static final TalonFXConfiguration kPivotConfig = new TalonFXConfiguration();
-    public static final TalonFXConfiguration kRollerConfig = new TalonFXConfiguration();
+    public static final TalonFXConfiguration kLeftRollerConfig = new TalonFXConfiguration();
+    public static final TalonFXConfiguration kRightRollerConfig = new TalonFXConfiguration();
 
     // -------------------- Unit / Gear Conversion Helpers --------------------
     public static double pivotAngleToMechanismRotations(Angle angle) {
@@ -76,9 +77,15 @@ public class IntakeConstants {
                 .withSupplyCurrentLimitEnable(true);
 
         // Roller Config
-        kRollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-        kRollerConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
-        kRollerConfig.CurrentLimits
+        kLeftRollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+        kLeftRollerConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+        kLeftRollerConfig.CurrentLimits
+                .withSupplyCurrentLimit(kRollerSupplyCurrentLimit)
+                .withSupplyCurrentLimitEnable(true);
+
+        kRightRollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+        kRightRollerConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
+        kRightRollerConfig.CurrentLimits
                 .withSupplyCurrentLimit(kRollerSupplyCurrentLimit)
                 .withSupplyCurrentLimitEnable(true);
     }

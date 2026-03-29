@@ -34,9 +34,9 @@ public class Hopper extends SubsystemBase {
     }
 
     // Hardware
-    private final TalonFX leftMotor;
-    private final TalonFX rightMotor;
-    private final TalonFX topMotor;
+    private final TalonFX hopperMotor;
+    private final TalonFX feederLeftMotor;
+    private final TalonFX feederRightMotor;
 
     // Control
     private final VoltageOut voltageRequest = new VoltageOut(0);
@@ -48,31 +48,31 @@ public class Hopper extends SubsystemBase {
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     private Hopper() {
-        leftMotor = TalonFXFactory.createDefaultTalon(Ports.HOPPER_LEFT);
-        rightMotor = TalonFXFactory.createDefaultTalon(Ports.HOPPER_RIGHT);
-        topMotor = TalonFXFactory.createDefaultTalon(Ports.HOPPER_TOP);
+        hopperMotor = TalonFXFactory.createDefaultTalon(Ports.HOPPER_MOTOR);
+        feederLeftMotor = TalonFXFactory.createDefaultTalon(Ports.FEEDER_LEFT);
+        feederRightMotor = TalonFXFactory.createDefaultTalon(Ports.FEEDER_RIGHT);
 
         // Apply configurations
-        TalonUtil.applyAndCheckConfiguration(leftMotor, HopperConstants.kLeftConfig);
-        TalonUtil.applyAndCheckConfiguration(rightMotor, HopperConstants.kRightConfig);
-        TalonUtil.applyAndCheckConfiguration(topMotor, HopperConstants.kTopConfig);
+        TalonUtil.applyAndCheckConfiguration(hopperMotor, kHopperConfig);
+        TalonUtil.applyAndCheckConfiguration(feederLeftMotor, kFeederLeftConfig);
+        TalonUtil.applyAndCheckConfiguration(feederRightMotor, kFeederRightConfig);
 
-        // Status signals (just left motor for telemetry)
-        leftVelocity = leftMotor.getVelocity();
-        leftCurrent = leftMotor.getSupplyCurrent();
+        // Status signals
+        leftVelocity = hopperMotor.getVelocity();
+        leftCurrent = hopperMotor.getSupplyCurrent();
 
         BaseStatusSignal.setUpdateFrequencyForAll(50, leftVelocity, leftCurrent);
-        leftMotor.optimizeBusUtilization();
-        rightMotor.optimizeBusUtilization();
-        topMotor.optimizeBusUtilization();
+        hopperMotor.optimizeBusUtilization();
+        feederLeftMotor.optimizeBusUtilization();
+        feederRightMotor.optimizeBusUtilization();
     }
 
     @Override
     public void periodic() {
         double voltage = running ? kFeedVoltage : 0.0;
-        leftMotor.setControl(voltageRequest.withOutput(voltage));
-        rightMotor.setControl(voltageRequest.withOutput(voltage));
-        topMotor.setControl(voltageRequest.withOutput(voltage));
+        hopperMotor.setControl(voltageRequest.withOutput(voltage));
+        feederLeftMotor.setControl(voltageRequest.withOutput(voltage));
+        feederRightMotor.setControl(voltageRequest.withOutput(voltage));
 
         telemetry.publishHopperState(new HopperSnapshot(
                 running,

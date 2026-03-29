@@ -13,29 +13,30 @@ public class HopperConstants {
         public static final double kTopStatorCurrentLimit = 60.0;
 
         // Motor Configs
-        public static final TalonFXConfiguration kLeftConfig = new TalonFXConfiguration();
-        public static final TalonFXConfiguration kRightConfig = new TalonFXConfiguration();
-        public static final TalonFXConfiguration kTopConfig = new TalonFXConfiguration();
+        public static final TalonFXConfiguration kHopperConfig = new TalonFXConfiguration();
+        public static final TalonFXConfiguration kFeederLeftConfig = new TalonFXConfiguration();
+        public static final TalonFXConfiguration kFeederRightConfig = new TalonFXConfiguration();
 
         static {
-                // Left Motor Config
-                kLeftConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-                kRightConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
-                kLeftConfig.CurrentLimits
+                // Hopper Motor Config
+                kHopperConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+                // TODO: Verify
+                kHopperConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+                kHopperConfig.CurrentLimits
                                 .withSupplyCurrentLimit(kRollerSupplyCurrentLimit)
                                 .withSupplyCurrentLimitEnable(true);
 
-                // Right Motor Config (inverted for opposing roller direction)
-                kRightConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-                kRightConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
-                kRightConfig.CurrentLimits
-                                .withSupplyCurrentLimit(kRollerSupplyCurrentLimit)
-                                .withSupplyCurrentLimitEnable(true);
+                kFeederLeftConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+                kFeederLeftConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+                kFeederLeftConfig.CurrentLimits
+                                .withSupplyCurrentLimitEnable(false)
+                                .withStatorCurrentLimit(kTopStatorCurrentLimit)
+                                .withStatorCurrentLimitEnable(true);
 
                 // Top Motor Config (opposite orientation to left motor)
-                kTopConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-                kTopConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
-                kTopConfig.CurrentLimits
+                kFeederRightConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+                kFeederRightConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+                kFeederRightConfig.CurrentLimits
                                 .withSupplyCurrentLimitEnable(false)
                                 .withStatorCurrentLimit(kTopStatorCurrentLimit)
                                 .withStatorCurrentLimitEnable(true);
