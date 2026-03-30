@@ -16,9 +16,9 @@ public class IntakeConstants {
     // Setpoints
     public static final Angle kDeployAngle = Degrees.of(6.0); // Down/Floor
     public static final Angle kDeployHighAngle = Degrees.of(-10.0); // Deploy +10 deg
-    public static final Angle kAgitateMiddleAngle = Degrees.of(50.0); // Slightly higher mid position for shot agitation
-    public static final Angle kRetractAngle = Degrees.of(126.0); // Up/Stowed
-    public static final double kRollerVoltage = -9.6;
+    public static final Angle kAgitateMiddleAngle = Degrees.of(80.0); // Slightly higher mid position for shot agitation
+    public static final Angle kRetractAngle = Degrees.of(110.0); // Up/Stowed
+    public static final double kRollerVoltage = 9.6;
     public static final double kAgitateFrequencyHz = 1.0;
     public static final double kShootAgitationDelaySec = 0.5;
 
@@ -35,7 +35,8 @@ public class IntakeConstants {
     public static final double kHomingVoltage = 3.0; // Positive = toward retract/up
     public static final double kStallCurrentThreshold = 20.0; // Amps
     public static final double kStallTimeThreshold = 0.1; // Seconds at stall
-    public static final Angle kHomePosition = Degrees.of(126.0); // Angle at hardstop
+    public static final double kStallVelocityThreshold = 0.05; // Mechanism rot/s (~18 deg/s)
+    public static final Angle kHomePosition = Degrees.of(134.0); // Angle at hardstop
 
     // Motor Configs
     public static final TalonFXConfiguration kPivotConfig = new TalonFXConfiguration();

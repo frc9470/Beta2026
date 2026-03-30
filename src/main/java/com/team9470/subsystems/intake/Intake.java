@@ -57,6 +57,7 @@ public class Intake extends SubsystemBase {
     private boolean shooting = false;
     private double shootingStartTimestampSec = Double.NEGATIVE_INFINITY;
     private boolean needsHoming = true;
+    private double homingStallStartTimestampSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     // Cached SmartDashboard gain values (pivot Slot0)
@@ -135,6 +136,7 @@ public class Intake extends SubsystemBase {
         agitating = false;
         shooting = false;
         shootingStartTimestampSec = Double.NEGATIVE_INFINITY;
+        homingStallStartTimestampSec = Double.NaN;
         needsHoming = true;
     }
 
@@ -245,13 +247,25 @@ public class Intake extends SubsystemBase {
             pivot.setControl(voltRequest.withOutput(IntakeConstants.kHomingVoltage));
             leftRoller.setControl(voltRequest.withOutput(0));
 
-            // Check for stall (hit hardstop): high current AND low velocity
-            double current = pivot.getSupplyCurrent().getValueAsDouble();
+            // Check for a sustained stall at the retract hardstop.
+            double now = Timer.getFPGATimestamp();
+            double supplyCurrent = pivot.getSupplyCurrent().getValueAsDouble();
+            double statorCurrent = pivot.getStatorCurrent().getValueAsDouble();
             double velocity = Math.abs(pivot.getVelocity().getValueAsDouble());
-            if (current > IntakeConstants.kStallCurrentThreshold && velocity < 0.5) {
-                pivot.setControl(voltRequest.withOutput(0));
-                pivot.setPosition(IntakeConstants.pivotAngleToMechanismRotations(IntakeConstants.kHomePosition));
-                needsHoming = false;
+            boolean stalled = statorCurrent > IntakeConstants.kStallCurrentThreshold
+                    && velocity < IntakeConstants.kStallVelocityThreshold;
+            if (stalled) {
+                if (Double.isNaN(homingStallStartTimestampSec)) {
+                    homingStallStartTimestampSec = now;
+                }
+                if (now - homingStallStartTimestampSec >= IntakeConstants.kStallTimeThreshold) {
+                    pivot.setControl(voltRequest.withOutput(0));
+                    pivot.setPosition(IntakeConstants.pivotAngleToMechanismRotations(IntakeConstants.kHomePosition));
+                    homingStallStartTimestampSec = Double.NaN;
+                    needsHoming = false;
+                }
+            } else {
+                homingStallStartTimestampSec = Double.NaN;
             }
 
             telemetry.publishIntakeState(new IntakeSnapshot(
@@ -264,7 +278,7 @@ public class Intake extends SubsystemBase {
                     IntakeConstants.pivotMechanismRotationsToAngle(pivot.getPosition().getValueAsDouble()).in(Radians),
                     0.0,
                     velocity * 2.0 * Math.PI,
-                    current,
+                    supplyCurrent,
                     IntakeConstants.kHomingVoltage,
                     0.0,
                     // TODO: Make it check from both rollers.

@@ -1,5 +1,8 @@
 package com.team9470.subsystems.shooter;
 
+import com.ctre.phoenix6.BaseStatusSignal;
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.VelocityVoltage;
 import com.ctre.phoenix6.controls.VoltageOut;
@@ -10,16 +13,30 @@ import com.team254.lib.drivers.TalonUtil;
 import com.team9470.Ports;
 import com.team9470.Robot;
 import com.team9470.simulation.ProjectileSimulation;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationConfig;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationCsvLogger;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationMode;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationSession;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationStatus;
 import com.team9470.telemetry.TelemetryManager;
+import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import com.team9470.telemetry.structs.ShooterSnapshot;
 import com.team9470.util.AutoAim.ShootingSolution;
 
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.units.measure.Current;
+import edu.wpi.first.units.measure.Voltage;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
@@ -31,9 +48,14 @@ import java.util.function.Supplier;
 public class Shooter extends SubsystemBase {
     private static final double kFlywheelSetpointToleranceRPS = 0.7; // 42 RPM
     private static final double kHoodSetpointToleranceRotations = 0.01; // ~3.6 degrees
-    private static final double kOverrevOffsetRPS = 250.0 / 60.0; // +250 RPM
+    private static final double kRestingFlywheelRPS = 1000.0 / 60.0;
+    private static final double kOverrevOffsetRPS = 125.0 / 60.0; // +125 RPM
     private static final double kOverrevRampSeconds = 0.75;
     private static final double kNonZeroSpeedEpsilonRPS = 1e-4;
+    private static final double kCharacterizationMinBatteryVolts = 9.5;
+    private static final double kCharacterizationMaxCurrentAmps = 160.0;
+    private static final double kCharacterizationMaxFlywheelRpm = ShooterCharacterizationConfig.defaultMaxFlywheelRpm() + 250.0;
+    private static final AtomicInteger kCharacterizationRunIds = new AtomicInteger(1);
 
     private static final double kMinHoodAngleRotations = ShooterConstants.launchRadToMechanismRotations(
             ShooterConstants.kMinHoodAngle.in(edu.wpi.first.units.Units.Radians));
@@ -44,6 +66,34 @@ public class Shooter extends SubsystemBase {
     private final TalonFX flywheel3 = TalonFXFactory.createDefaultTalon(Ports.FLYWHEEL_3);
     private final TalonFX flywheel4 = TalonFXFactory.createDefaultTalon(Ports.FLYWHEEL_4);
     private final TalonFX hoodMotor = TalonFXFactory.createDefaultTalon(Ports.HOOD_MOTOR);
+    private final StatusSignal<AngularVelocity> flywheelVelocitySignal = flywheel1.getVelocity();
+    private final StatusSignal<Current> flywheel1SupplyCurrentSignal = flywheel1.getSupplyCurrent();
+    private final StatusSignal<Current> flywheel2SupplyCurrentSignal = flywheel2.getSupplyCurrent();
+    private final StatusSignal<Current> flywheel3SupplyCurrentSignal = flywheel3.getSupplyCurrent();
+    private final StatusSignal<Current> flywheel4SupplyCurrentSignal = flywheel4.getSupplyCurrent();
+    private final StatusSignal<Current> flywheel1StatorCurrentSignal = flywheel1.getStatorCurrent();
+    private final StatusSignal<Current> flywheel2StatorCurrentSignal = flywheel2.getStatorCurrent();
+    private final StatusSignal<Current> flywheel3StatorCurrentSignal = flywheel3.getStatorCurrent();
+    private final StatusSignal<Current> flywheel4StatorCurrentSignal = flywheel4.getStatorCurrent();
+    private final StatusSignal<Voltage> flywheel1MotorVoltageSignal = flywheel1.getMotorVoltage();
+    private final StatusSignal<Voltage> flywheel2MotorVoltageSignal = flywheel2.getMotorVoltage();
+    private final StatusSignal<Voltage> flywheel3MotorVoltageSignal = flywheel3.getMotorVoltage();
+    private final StatusSignal<Voltage> flywheel4MotorVoltageSignal = flywheel4.getMotorVoltage();
+    private final BaseStatusSignal[] characterizationSignals = new BaseStatusSignal[] {
+            flywheelVelocitySignal,
+            flywheel1SupplyCurrentSignal,
+            flywheel2SupplyCurrentSignal,
+            flywheel3SupplyCurrentSignal,
+            flywheel4SupplyCurrentSignal,
+            flywheel1StatorCurrentSignal,
+            flywheel2StatorCurrentSignal,
+            flywheel3StatorCurrentSignal,
+            flywheel4StatorCurrentSignal,
+            flywheel1MotorVoltageSignal,
+            flywheel2MotorVoltageSignal,
+            flywheel3MotorVoltageSignal,
+            flywheel4MotorVoltageSignal
+    };
 
     // Controls
     private final VelocityVoltage flywheelRequest = new VelocityVoltage(0);
@@ -58,6 +108,10 @@ public class Shooter extends SubsystemBase {
     private boolean needsHoming = true;
     private boolean overrevActive = false;
     private double overrevRampStartTimestampSec = Double.NEGATIVE_INFINITY;
+    private ShooterCharacterizationSession characterizationSession;
+    private ShooterCharacterizationCsvLogger characterizationLogger;
+    private ShooterCharacterizationStatus characterizationStatus = ShooterCharacterizationStatus.idle();
+    private double cachedHoodKP, cachedHoodKI, cachedHoodKD, cachedHoodKV, cachedHoodKG;
 
     // Simulation context
     private Supplier<Pose2d> poseSupplier = Pose2d::new;
@@ -81,10 +135,16 @@ public class Shooter extends SubsystemBase {
     public Shooter() {
         // Configure motors
         TalonUtil.applyAndCheckConfiguration(flywheel1, ShooterConstants.kFlywheelConfig);
-        TalonUtil.applyAndCheckConfiguration(flywheel2, ShooterConstants.kFlywheelInvertedConfig);
-        TalonUtil.applyAndCheckConfiguration(flywheel3, ShooterConstants.kFlywheelConfig);
+        TalonUtil.applyAndCheckConfiguration(flywheel2, ShooterConstants.kFlywheelConfig);
+        TalonUtil.applyAndCheckConfiguration(flywheel3, ShooterConstants.kFlywheelInvertedConfig);
         TalonUtil.applyAndCheckConfiguration(flywheel4, ShooterConstants.kFlywheelInvertedConfig);
         TalonUtil.applyAndCheckConfiguration(hoodMotor, ShooterConstants.kHoodConfig);
+        initSmartDashboardGains();
+        BaseStatusSignal.setUpdateFrequencyForAll(100.0, characterizationSignals);
+        flywheel1.optimizeBusUtilization();
+        flywheel2.optimizeBusUtilization();
+        flywheel3.optimizeBusUtilization();
+        flywheel4.optimizeBusUtilization();
 
         // Initialize simulation if needed
         if (Robot.isSimulation()) {
@@ -163,6 +223,7 @@ public class Shooter extends SubsystemBase {
      * Stop all motors.
      */
     public void stop() {
+        stopCharacterization();
         targetSpeedRPS = 0.0;
         nominalTargetSpeedRPS = 0.0;
         targetHoodAngleRotations = kMinHoodAngleRotations;
@@ -174,6 +235,7 @@ public class Shooter extends SubsystemBase {
      * Request hood re-homing against its minimum-angle hardstop.
      */
     public void requestHome() {
+        stopCharacterization();
         targetSpeedRPS = 0.0;
         nominalTargetSpeedRPS = 0.0;
         targetHoodAngleRotations = kMinHoodAngleRotations;
@@ -202,7 +264,7 @@ public class Shooter extends SubsystemBase {
         if (Robot.isSimulation()) {
             return ProjectileSimulation.getInstance().getFlywheelVelocityRPS();
         }
-        return flywheel1.getVelocity().getValueAsDouble();
+        return flywheelVelocitySignal.getValueAsDouble();
     }
 
     public double getCurrentHoodRotations() {
@@ -256,13 +318,175 @@ public class Shooter extends SubsystemBase {
         return requestedSpeedRPS + offsetRPS;
     }
 
+    private double getClosedLoopFlywheelCommandRps() {
+        if (needsHoming) {
+            return 0.0;
+        }
+        return targetSpeedRPS > kNonZeroSpeedEpsilonRPS ? targetSpeedRPS : kRestingFlywheelRPS;
+    }
+
+    public void startCharacterization(ShooterCharacterizationConfig config, ShooterCharacterizationMode mode) {
+        stopCharacterization();
+        if (mode == ShooterCharacterizationMode.DISABLED) {
+            return;
+        }
+        if (!DriverStation.isTestEnabled()) {
+            publishCharacterizationFailure(mode, "Characterization requires Test mode");
+            return;
+        }
+        if (needsHoming) {
+            publishCharacterizationFailure(mode, "Hood must be homed before characterization");
+            return;
+        }
+
+        clearOverrev();
+        isFiring = false;
+        nominalTargetSpeedRPS = 0.0;
+        targetSpeedRPS = 0.0;
+        targetHoodAngleRotations = kMinHoodAngleRotations;
+
+        int runId = kCharacterizationRunIds.getAndIncrement();
+        characterizationSession = new ShooterCharacterizationSession(
+                runId,
+                mode,
+                config,
+                Timer.getFPGATimestamp());
+        characterizationStatus = characterizationSession.status();
+        publishCharacterizationStatus();
+        try {
+            characterizationLogger = ShooterCharacterizationCsvLogger.create(runId, mode);
+        } catch (IOException e) {
+            publishCharacterizationFailure(mode, "Failed to create log file: " + e.getMessage());
+            characterizationSession = null;
+            closeCharacterizationLogger();
+        }
+    }
+
+    public void stopCharacterization() {
+        if (characterizationSession != null && characterizationSession.isActive()) {
+            characterizationSession.abort("Stopped");
+            characterizationStatus = characterizationSession.status();
+        }
+        characterizationSession = null;
+        closeCharacterizationLogger();
+        publishCharacterizationStatus();
+    }
+
+    public boolean isCharacterizing() {
+        return characterizationSession != null && characterizationSession.isActive();
+    }
+
+    public ShooterCharacterizationStatus getCharacterizationStatus() {
+        return characterizationStatus;
+    }
+
+    private void initSmartDashboardGains() {
+        cachedHoodKP = ShooterConstants.kHoodConfig.Slot0.kP;
+        cachedHoodKI = ShooterConstants.kHoodConfig.Slot0.kI;
+        cachedHoodKD = ShooterConstants.kHoodConfig.Slot0.kD;
+        cachedHoodKV = ShooterConstants.kHoodConfig.Slot0.kV;
+        cachedHoodKG = ShooterConstants.kHoodConfig.Slot0.kG;
+
+        SmartDashboard.putNumber("Hood/kP", cachedHoodKP);
+        SmartDashboard.putNumber("Hood/kI", cachedHoodKI);
+        SmartDashboard.putNumber("Hood/kD", cachedHoodKD);
+        SmartDashboard.putNumber("Hood/kV", cachedHoodKV);
+        SmartDashboard.putNumber("Hood/kG", cachedHoodKG);
+    }
+
+    private void updateSmartDashboardGains() {
+        double hoodKP = SmartDashboard.getNumber("Hood/kP", cachedHoodKP);
+        double hoodKI = SmartDashboard.getNumber("Hood/kI", cachedHoodKI);
+        double hoodKD = SmartDashboard.getNumber("Hood/kD", cachedHoodKD);
+        double hoodKV = SmartDashboard.getNumber("Hood/kV", cachedHoodKV);
+        double hoodKG = SmartDashboard.getNumber("Hood/kG", cachedHoodKG);
+
+        if (hoodKP != cachedHoodKP || hoodKI != cachedHoodKI || hoodKD != cachedHoodKD
+                || hoodKV != cachedHoodKV || hoodKG != cachedHoodKG) {
+            cachedHoodKP = hoodKP;
+            cachedHoodKI = hoodKI;
+            cachedHoodKD = hoodKD;
+            cachedHoodKV = hoodKV;
+            cachedHoodKG = hoodKG;
+
+            Slot0Configs hoodGains = new Slot0Configs()
+                    .withKP(hoodKP)
+                    .withKI(hoodKI)
+                    .withKD(hoodKD)
+                    .withKV(hoodKV)
+                    .withKG(hoodKG);
+            hoodMotor.getConfigurator().apply(hoodGains);
+        }
+    }
+
     @Override
     public void periodic() {
+        updateSmartDashboardGains();
+
+        if (!Robot.isSimulation()) {
+            BaseStatusSignal.refreshAll(characterizationSignals);
+        }
+
+        double currentRPS = getCurrentFlywheelRPS();
+        double currentHoodRot = getCurrentHoodRotations();
+        double currentLaunchRad = ShooterConstants.mechanismRotationsToLaunchRad(currentHoodRot);
+        double batteryVolts = RobotController.getBatteryVoltage();
+        double avgFlywheelVoltage = average(
+                flywheel1MotorVoltageSignal.getValueAsDouble(),
+                flywheel2MotorVoltageSignal.getValueAsDouble(),
+                flywheel3MotorVoltageSignal.getValueAsDouble(),
+                flywheel4MotorVoltageSignal.getValueAsDouble());
+        double totalFlywheelSupplyCurrent = sum(
+                flywheel1SupplyCurrentSignal.getValueAsDouble(),
+                flywheel2SupplyCurrentSignal.getValueAsDouble(),
+                flywheel3SupplyCurrentSignal.getValueAsDouble(),
+                flywheel4SupplyCurrentSignal.getValueAsDouble());
+        double avgFlywheelSupplyCurrent = totalFlywheelSupplyCurrent / 4.0;
+        double avgFlywheelStatorCurrent = average(
+                flywheel1StatorCurrentSignal.getValueAsDouble(),
+                flywheel2StatorCurrentSignal.getValueAsDouble(),
+                flywheel3StatorCurrentSignal.getValueAsDouble(),
+                flywheel4StatorCurrentSignal.getValueAsDouble());
+        double electricalPowerWatts = batteryVolts * totalFlywheelSupplyCurrent;
+
+        ShooterCharacterizationSession.Sample characterizationSample = null;
+        boolean characterizationOpenLoop = false;
+        double commandedFlywheelRps = getClosedLoopFlywheelCommandRps();
+        double commandedFlywheelVolts = 0.0;
+        if (characterizationSession != null) {
+            if (!DriverStation.isTestEnabled()) {
+                characterizationSession.abort("Test mode exited");
+            } else if (batteryVolts < kCharacterizationMinBatteryVolts) {
+                characterizationSession.abort("Battery below characterization threshold");
+            } else if (totalFlywheelSupplyCurrent > kCharacterizationMaxCurrentAmps) {
+                characterizationSession.abort("Flywheel current exceeded threshold");
+            } else if ((currentRPS * 60.0) > kCharacterizationMaxFlywheelRpm) {
+                characterizationSession.abort("Flywheel RPM exceeded threshold");
+            }
+
+            boolean atCurrentCharacterizationSetpoint = isAtCommandedSetpoint(
+                    currentRPS,
+                    currentHoodRot,
+                    characterizationStatus.commandedRpm() / 60.0,
+                    kMinHoodAngleRotations);
+            characterizationSample = characterizationSession.update(Timer.getFPGATimestamp(), atCurrentCharacterizationSetpoint);
+            commandedFlywheelRps = characterizationSample.commandedRpm() / 60.0;
+            commandedFlywheelVolts = characterizationSample.commandedVolts();
+            characterizationOpenLoop = characterizationSample.mode() == ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP;
+        }
+
         // === Flywheel control (always runs, independent of homing) ===
-        flywheel1.setControl(flywheelRequest.withVelocity(targetSpeedRPS));
-        flywheel2.setControl(flywheelRequest.withVelocity(targetSpeedRPS));
-        flywheel3.setControl(flywheelRequest.withVelocity(targetSpeedRPS));
-        flywheel4.setControl(flywheelRequest.withVelocity(targetSpeedRPS));
+        if (characterizationOpenLoop) {
+            flywheel1.setControl(voltRequest.withOutput(commandedFlywheelVolts));
+            flywheel2.setControl(voltRequest.withOutput(commandedFlywheelVolts));
+            flywheel3.setControl(voltRequest.withOutput(commandedFlywheelVolts));
+            flywheel4.setControl(voltRequest.withOutput(commandedFlywheelVolts));
+        } else {
+            flywheel1.setControl(flywheelRequest.withVelocity(commandedFlywheelRps));
+            flywheel2.setControl(flywheelRequest.withVelocity(commandedFlywheelRps));
+            flywheel3.setControl(flywheelRequest.withVelocity(commandedFlywheelRps));
+            flywheel4.setControl(flywheelRequest.withVelocity(commandedFlywheelRps));
+        }
 
         // === Hood control (gated by homing) ===
         if (needsHoming) {
@@ -279,33 +503,18 @@ public class Shooter extends SubsystemBase {
                 needsHoming = false;
             }
         } else {
-            // Normal hood control
-            hoodMotor.setControl(hoodRequest.withPosition(targetHoodAngleRotations));
+            double hoodCommandRot = characterizationSession != null ? kMinHoodAngleRotations : targetHoodAngleRotations;
+            hoodMotor.setControl(hoodRequest.withPosition(hoodCommandRot));
         }
 
         // === Telemetry (always runs) ===
-        double currentHoodRot = getCurrentHoodRotations();
-        double currentLaunchRad = ShooterConstants.mechanismRotationsToLaunchRad(currentHoodRot);
-        double targetLaunchRad = ShooterConstants.mechanismRotationsToLaunchRad(targetHoodAngleRotations);
-        double currentRPS = getCurrentFlywheelRPS();
-
-        double avgFlywheelVoltage = (flywheel1.getMotorVoltage().getValueAsDouble()
-                + flywheel2.getMotorVoltage().getValueAsDouble()
-                + flywheel3.getMotorVoltage().getValueAsDouble()
-                + flywheel4.getMotorVoltage().getValueAsDouble()) / 4.0;
-        double avgFlywheelSupplyCurrent = (flywheel1.getSupplyCurrent().getValueAsDouble()
-                + flywheel2.getSupplyCurrent().getValueAsDouble()
-                + flywheel3.getSupplyCurrent().getValueAsDouble()
-                + flywheel4.getSupplyCurrent().getValueAsDouble()) / 4.0;
-        double avgFlywheelStatorCurrent = (flywheel1.getStatorCurrent().getValueAsDouble()
-                + flywheel2.getStatorCurrent().getValueAsDouble()
-                + flywheel3.getStatorCurrent().getValueAsDouble()
-                + flywheel4.getStatorCurrent().getValueAsDouble()) / 4.0;
-
-        boolean atSetpoint = !needsHoming && isAtSetpoint();
+        double targetHoodRot = characterizationSession != null ? kMinHoodAngleRotations : targetHoodAngleRotations;
+        double targetLaunchRad = ShooterConstants.mechanismRotationsToLaunchRad(targetHoodRot);
+        boolean atSetpoint = !needsHoming
+                && isAtCommandedSetpoint(currentRPS, currentHoodRot, commandedFlywheelRps, targetHoodRot);
         int stateCode = needsHoming
                 ? STATE_HOMING
-                : (isFiring ? STATE_FIRING : (targetSpeedRPS > 0.0 ? STATE_SPINNING_UP : STATE_IDLE));
+                : (isFiring ? STATE_FIRING : (commandedFlywheelRps > 0.0 ? STATE_SPINNING_UP : STATE_IDLE));
 
         telemetry.publishShooterState(new ShooterSnapshot(
                 needsHoming,
@@ -320,19 +529,49 @@ public class Shooter extends SubsystemBase {
                 hoodMotor.getStatorCurrent().getValueAsDouble(),
                 hoodMotor.getSupplyCurrent().getValueAsDouble(),
                 hoodMotor.getMotorVoltage().getValueAsDouble(),
-                targetSpeedRPS,
+                commandedFlywheelRps,
                 currentRPS,
-                targetSpeedRPS - currentRPS,
+                commandedFlywheelRps - currentRPS,
                 avgFlywheelVoltage,
                 avgFlywheelSupplyCurrent,
                 avgFlywheelStatorCurrent));
+
+        if (characterizationSession != null && characterizationSample != null) {
+            characterizationStatus = characterizationSession.status();
+            ShooterCharacterizationSnapshot snapshot = new ShooterCharacterizationSnapshot(
+                    Timer.getFPGATimestamp(),
+                    characterizationSample.runId(),
+                    characterizationSample.mode().code(),
+                    characterizationSample.segmentIndex(),
+                    characterizationSample.commandedRpm(),
+                    characterizationSample.commandedVolts(),
+                    currentRPS * 60.0,
+                    batteryVolts,
+                    avgFlywheelVoltage,
+                    totalFlywheelSupplyCurrent,
+                    avgFlywheelStatorCurrent,
+                    electricalPowerWatts,
+                    characterizationSample.commandedRpm() - (currentRPS * 60.0),
+                    atSetpoint,
+                    characterizationSample.settled(),
+                    characterizationSample.aborted());
+            telemetry.publishShooterCharacterization(snapshot);
+            publishCharacterizationStatus();
+            tryAppendCharacterizationRow(characterizationSample.mode(), snapshot);
+
+            if (!characterizationSample.active()) {
+                characterizationSession = null;
+                closeCharacterizationLogger();
+                publishCharacterizationStatus();
+            }
+        }
     }
 
     @Override
     public void simulationPeriodic() {
         // Update projectile simulation
         ProjectileSimulation sim = ProjectileSimulation.getInstance();
-        sim.update(0.02, isFiring, targetSpeedRPS, targetHoodAngleRotations);
+        sim.update(0.02, isFiring, getClosedLoopFlywheelCommandRps(), targetHoodAngleRotations);
 
         // Feed simulated values back to motor sim states
         double flywheelRPS = sim.getFlywheelVelocityRPS();
@@ -364,5 +603,85 @@ public class Shooter extends SubsystemBase {
      */
     public boolean isHomed() {
         return !needsHoming;
+    }
+
+    private boolean isAtCommandedSetpoint(
+            double currentFlywheelRps,
+            double currentHoodRot,
+            double commandedFlywheelRps,
+            double commandedHoodRot) {
+        double rpsError = Math.abs(currentFlywheelRps - commandedFlywheelRps);
+        double hoodError = Math.abs(currentHoodRot - commandedHoodRot);
+        return rpsError < kFlywheelSetpointToleranceRPS && hoodError < kHoodSetpointToleranceRotations;
+    }
+
+    private void publishCharacterizationFailure(ShooterCharacterizationMode mode, String reason) {
+        characterizationStatus = new ShooterCharacterizationStatus(
+                false,
+                false,
+                true,
+                0,
+                mode,
+                -1,
+                0,
+                0.0,
+                0.0,
+                reason);
+        publishCharacterizationStatus();
+    }
+
+    private void publishCharacterizationStatus() {
+        telemetry.publishShooterCharacterizationStatus(
+                characterizationStatus.active(),
+                characterizationStatus.complete(),
+                characterizationStatus.aborted(),
+                characterizationStatus.runId(),
+                characterizationStatus.mode().code(),
+                characterizationStatus.mode().name(),
+                characterizationStatus.segmentIndex(),
+                characterizationStatus.totalSegments(),
+                characterizationStatus.abortReason());
+    }
+
+    private void closeCharacterizationLogger() {
+        if (characterizationLogger == null) {
+            return;
+        }
+        try {
+            characterizationLogger.close();
+        } catch (IOException e) {
+            DriverStation.reportWarning("Failed to close shooter characterization log: " + e.getMessage(), false);
+        }
+        characterizationLogger = null;
+    }
+
+    private void tryAppendCharacterizationRow(
+            ShooterCharacterizationMode mode,
+            ShooterCharacterizationSnapshot snapshot) {
+        if (characterizationLogger == null) {
+            return;
+        }
+        try {
+            characterizationLogger.append(mode, snapshot);
+        } catch (IOException e) {
+            if (characterizationSession != null) {
+                characterizationSession.abort("Failed to write characterization log");
+                characterizationStatus = characterizationSession.status();
+            }
+            DriverStation.reportWarning("Failed to append shooter characterization log: " + e.getMessage(), false);
+            closeCharacterizationLogger();
+        }
+    }
+
+    private static double average(double... values) {
+        return sum(values) / values.length;
+    }
+
+    private static double sum(double... values) {
+        double total = 0.0;
+        for (double value : values) {
+            total += value;
+        }
+        return total;
     }
 }

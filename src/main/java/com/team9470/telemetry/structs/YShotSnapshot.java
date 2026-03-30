@@ -10,6 +10,7 @@ public record YShotSnapshot(
         double requestedHoodRad,
         double appliedRps,
         double appliedHoodRad,
+        double distanceMeters,
         boolean readyToFeed) implements StructSerializable {
     public static final Struct<YShotSnapshot> struct = StructGenerator.genRecord(YShotSnapshot.class);
 }

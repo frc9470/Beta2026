@@ -10,7 +10,7 @@ public class HopperConstants {
         // Control
         public static final double kFeedVoltage = -12.0; // Voltage when feeding to shooter
         public static final double kRollerSupplyCurrentLimit = 25.0;
-        public static final double kTopStatorCurrentLimit = 60.0;
+        public static final double kTopStatorCurrentLimit = 30.0;
 
         // Motor Configs
         public static final TalonFXConfiguration kHopperConfig = new TalonFXConfiguration();
@@ -26,15 +26,15 @@ public class HopperConstants {
                                 .withSupplyCurrentLimit(kRollerSupplyCurrentLimit)
                                 .withSupplyCurrentLimitEnable(true);
 
-                kFeederLeftConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-                kFeederLeftConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+                kFeederLeftConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+                kFeederLeftConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
                 kFeederLeftConfig.CurrentLimits
                                 .withSupplyCurrentLimitEnable(false)
                                 .withStatorCurrentLimit(kTopStatorCurrentLimit)
                                 .withStatorCurrentLimitEnable(true);
 
-                // Top Motor Config (opposite orientation to left motor)
-                kFeederRightConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+                // Right feeder motor config (opposite orientation to left motor)
+                kFeederRightConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
                 kFeederRightConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
                 kFeederRightConfig.CurrentLimits
                                 .withSupplyCurrentLimitEnable(false)

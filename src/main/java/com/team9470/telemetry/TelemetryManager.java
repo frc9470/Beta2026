@@ -5,6 +5,7 @@ import com.team9470.telemetry.structs.DriveStatusSnapshot;
 import com.team9470.telemetry.structs.HopperSnapshot;
 import com.team9470.telemetry.structs.IntakeSnapshot;
 import com.team9470.telemetry.structs.PracticeTimerSnapshot;
+import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import com.team9470.telemetry.structs.ShooterSnapshot;
 import com.team9470.telemetry.structs.SimSnapshot;
 import com.team9470.telemetry.structs.SuperstructureSnapshot;
@@ -100,10 +101,52 @@ public final class TelemetryManager {
             .getStructTopic("State", ShooterSnapshot.struct).publish();
     private final StructPublisher<AutoAimSolverSnapshot> shooterSolverPublisher = shooterTable
             .getStructTopic("Solver/State", AutoAimSolverSnapshot.struct).publish();
+    private final NetworkTable shooterCharacterizationTable = shooterTable.getSubTable("Characterization");
+    private final StructPublisher<ShooterCharacterizationSnapshot> shooterCharacterizationPublisher = shooterCharacterizationTable
+            .getStructTopic("State", ShooterCharacterizationSnapshot.struct).publish();
+    private final BooleanPublisher shooterCharacterizationActivePublisher = shooterCharacterizationTable
+            .getBooleanTopic("Active").publish();
+    private final BooleanPublisher shooterCharacterizationCompletePublisher = shooterCharacterizationTable
+            .getBooleanTopic("Complete").publish();
+    private final BooleanPublisher shooterCharacterizationAbortedPublisher = shooterCharacterizationTable
+            .getBooleanTopic("Aborted").publish();
+    private final IntegerPublisher shooterCharacterizationRunIdPublisher = shooterCharacterizationTable
+            .getIntegerTopic("RunId").publish();
+    private final IntegerPublisher shooterCharacterizationModeCodePublisher = shooterCharacterizationTable
+            .getIntegerTopic("ModeCode").publish();
+    private final StringPublisher shooterCharacterizationModeLabelPublisher = shooterCharacterizationTable
+            .getStringTopic("ModeLabel").publish();
+    private final IntegerPublisher shooterCharacterizationSegmentIndexPublisher = shooterCharacterizationTable
+            .getIntegerTopic("SegmentIndex").publish();
+    private final IntegerPublisher shooterCharacterizationSegmentCountPublisher = shooterCharacterizationTable
+            .getIntegerTopic("SegmentCount").publish();
+    private final StringPublisher shooterCharacterizationAbortReasonPublisher = shooterCharacterizationTable
+            .getStringTopic("AbortReason").publish();
 
     private final NetworkTable hopperTable = telemetryTable.getSubTable("Hopper");
     private final StructPublisher<HopperSnapshot> hopperStatePublisher = hopperTable
             .getStructTopic("State", HopperSnapshot.struct).publish();
+    private final NetworkTable hopperFeederTable = hopperTable.getSubTable("Feeder");
+    private final DoublePublisher hopperFeederCommandedVoltsPublisher = TelemetryUtil.publishDouble(
+            hopperFeederTable, "CommandedVolts", "V");
+    private final NetworkTable hopperFeederLeftTable = hopperFeederTable.getSubTable("Left");
+    private final DoublePublisher hopperFeederLeftVelocityPublisher = TelemetryUtil.publishDouble(
+            hopperFeederLeftTable, "VelocityRps", "rps");
+    private final DoublePublisher hopperFeederLeftSupplyCurrentPublisher = TelemetryUtil.publishDouble(
+            hopperFeederLeftTable, "SupplyCurrentAmps", "A");
+    private final DoublePublisher hopperFeederLeftStatorCurrentPublisher = TelemetryUtil.publishDouble(
+            hopperFeederLeftTable, "StatorCurrentAmps", "A");
+    private final DoublePublisher hopperFeederLeftAppliedVoltsPublisher = TelemetryUtil.publishDouble(
+            hopperFeederLeftTable, "AppliedVolts", "V");
+    private final NetworkTable hopperFeederRightTable = hopperFeederTable.getSubTable("Right");
+    private final DoublePublisher hopperFeederRightVelocityPublisher = TelemetryUtil.publishDouble(
+            hopperFeederRightTable, "VelocityRps", "rps");
+    private final DoublePublisher hopperFeederRightSupplyCurrentPublisher = TelemetryUtil.publishDouble(
+            hopperFeederRightTable, "SupplyCurrentAmps", "A");
+    private final DoublePublisher hopperFeederRightStatorCurrentPublisher = TelemetryUtil.publishDouble(
+            hopperFeederRightTable, "StatorCurrentAmps", "A");
+    private final DoublePublisher hopperFeederRightAppliedVoltsPublisher = TelemetryUtil.publishDouble(
+            hopperFeederRightTable, "AppliedVolts", "V");
 
     private final NetworkTable superstructureTable = telemetryTable.getSubTable("Superstructure");
     private final StructPublisher<SuperstructureSnapshot> superstructureStatePublisher = superstructureTable
@@ -249,8 +292,54 @@ public final class TelemetryManager {
         shooterSolverPublisher.set(snapshot);
     }
 
+    public void publishShooterCharacterization(ShooterCharacterizationSnapshot snapshot) {
+        shooterCharacterizationPublisher.set(snapshot);
+    }
+
+    public void publishShooterCharacterizationStatus(
+            boolean active,
+            boolean complete,
+            boolean aborted,
+            int runId,
+            int modeCode,
+            String modeLabel,
+            int segmentIndex,
+            int segmentCount,
+            String abortReason) {
+        shooterCharacterizationActivePublisher.set(active);
+        shooterCharacterizationCompletePublisher.set(complete);
+        shooterCharacterizationAbortedPublisher.set(aborted);
+        shooterCharacterizationRunIdPublisher.set(runId);
+        shooterCharacterizationModeCodePublisher.set(modeCode);
+        shooterCharacterizationModeLabelPublisher.set(modeLabel);
+        shooterCharacterizationSegmentIndexPublisher.set(segmentIndex);
+        shooterCharacterizationSegmentCountPublisher.set(segmentCount);
+        shooterCharacterizationAbortReasonPublisher.set(abortReason);
+    }
+
     public void publishHopperState(HopperSnapshot snapshot) {
         hopperStatePublisher.set(snapshot);
+    }
+
+    public void publishHopperFeederState(
+            double commandedVolts,
+            double leftVelocityRps,
+            double leftSupplyCurrentAmps,
+            double leftStatorCurrentAmps,
+            double leftAppliedVolts,
+            double rightVelocityRps,
+            double rightSupplyCurrentAmps,
+            double rightStatorCurrentAmps,
+            double rightAppliedVolts) {
+        hopperFeederCommandedVoltsPublisher.set(commandedVolts);
+        hopperFeederLeftVelocityPublisher.set(leftVelocityRps);
+        hopperFeederLeftSupplyCurrentPublisher.set(leftSupplyCurrentAmps);
+        hopperFeederLeftStatorCurrentPublisher.set(leftStatorCurrentAmps);
+        hopperFeederLeftAppliedVoltsPublisher.set(leftAppliedVolts);
+        hopperFeederRightVelocityPublisher.set(rightVelocityRps);
+        hopperFeederRightSupplyCurrentPublisher.set(rightSupplyCurrentAmps);
+        hopperFeederRightStatorCurrentPublisher.set(rightStatorCurrentAmps);
+        hopperFeederRightAppliedVoltsPublisher.set(rightAppliedVolts);
     }
 
     public void publishSuperstructureState(SuperstructureSnapshot snapshot) {

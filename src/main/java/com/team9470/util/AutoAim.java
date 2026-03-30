@@ -120,10 +120,29 @@ public class AutoAim {
                 mode == AimMode.FEED ? 1 : 0,
                 mode == AimMode.FEED,
                 robotXBlueMeters,
-                Double.NaN,
+                0.0,
                 false,
-                Double.NaN,
-                Double.NaN));
+                0.0,
+                0.0));
+    }
+
+    /**
+     * Returns the current straight-line shooter-to-target distance without SOTM
+     * lookahead. Useful for debug dashboards that need a simple live distance.
+     */
+    public static double getDistanceMeters(Pose2d robotPose) {
+        return getDistanceMeters(robotPose, false);
+    }
+
+    public static double getDistanceMeters(Pose2d robotPose, boolean useRobotSideForFeedTarget) {
+        if (robotPose == null) {
+            return 0.0;
+        }
+        Translation3d target = getTarget(robotPose, useRobotSideForFeedTarget);
+        Translation2d shooterOffsetXY = new Translation2d(SHOOTER_OFFSET.getX(), SHOOTER_OFFSET.getY())
+                .rotateBy(robotPose.getRotation());
+        Translation2d shooterExitXY = robotPose.getTranslation().plus(shooterOffsetXY);
+        return shooterExitXY.getDistance(target.toTranslation2d());
     }
 
     // Number of iterations for the SOTM lookahead convergence loop.

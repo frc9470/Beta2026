@@ -7,6 +7,7 @@ import com.team9470.telemetry.structs.DriveStatusSnapshot;
 import com.team9470.telemetry.structs.HopperSnapshot;
 import com.team9470.telemetry.structs.IntakeSnapshot;
 import com.team9470.telemetry.structs.PracticeTimerSnapshot;
+import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import com.team9470.telemetry.structs.ShooterSnapshot;
 import com.team9470.telemetry.structs.SimSnapshot;
 import com.team9470.telemetry.structs.SuperstructureSnapshot;
@@ -58,6 +59,28 @@ class SnapshotStructsTest {
                         6.0,
                         40.0,
                         45.0));
+    }
+
+    @Test
+    void shooterCharacterizationRoundTrip() {
+        assertRoundTrip(ShooterCharacterizationSnapshot.struct,
+                new ShooterCharacterizationSnapshot(
+                        12.5,
+                        7,
+                        2,
+                        4,
+                        3000.0,
+                        6.0,
+                        2850.0,
+                        11.8,
+                        5.5,
+                        60.0,
+                        75.0,
+                        708.0,
+                        150.0,
+                        true,
+                        false,
+                        false));
     }
 
     @Test

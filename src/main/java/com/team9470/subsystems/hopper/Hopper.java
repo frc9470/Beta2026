@@ -2,8 +2,10 @@ package com.team9470.subsystems.hopper;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
+import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.team254.lib.drivers.TalonFXFactory;
 import com.team254.lib.drivers.TalonUtil;
 
@@ -13,6 +15,7 @@ import com.team9470.telemetry.structs.HopperSnapshot;
 
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.units.measure.Current;
+import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -43,8 +46,16 @@ public class Hopper extends SubsystemBase {
     private boolean running = false;
 
     // Status signals
-    private final StatusSignal<AngularVelocity> leftVelocity;
-    private final StatusSignal<Current> leftCurrent;
+    private final StatusSignal<AngularVelocity> hopperVelocity;
+    private final StatusSignal<Current> hopperCurrent;
+    private final StatusSignal<AngularVelocity> feederLeftVelocity;
+    private final StatusSignal<Current> feederLeftSupplyCurrent;
+    private final StatusSignal<Current> feederLeftStatorCurrent;
+    private final StatusSignal<Voltage> feederLeftAppliedVolts;
+    private final StatusSignal<AngularVelocity> feederRightVelocity;
+    private final StatusSignal<Current> feederRightSupplyCurrent;
+    private final StatusSignal<Current> feederRightStatorCurrent;
+    private final StatusSignal<Voltage> feederRightAppliedVolts;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     private Hopper() {
@@ -57,11 +68,33 @@ public class Hopper extends SubsystemBase {
         TalonUtil.applyAndCheckConfiguration(feederLeftMotor, kFeederLeftConfig);
         TalonUtil.applyAndCheckConfiguration(feederRightMotor, kFeederRightConfig);
 
-        // Status signals
-        leftVelocity = hopperMotor.getVelocity();
-        leftCurrent = hopperMotor.getSupplyCurrent();
+        // Right feeder mirrors the left feeder across an opposed physical layout.
+        feederRightMotor.setControl(new Follower(feederLeftMotor.getDeviceID(), MotorAlignmentValue.Opposed));
 
-        BaseStatusSignal.setUpdateFrequencyForAll(50, leftVelocity, leftCurrent);
+        // Status signals
+        hopperVelocity = hopperMotor.getVelocity();
+        hopperCurrent = hopperMotor.getSupplyCurrent();
+        feederLeftVelocity = feederLeftMotor.getVelocity();
+        feederLeftSupplyCurrent = feederLeftMotor.getSupplyCurrent();
+        feederLeftStatorCurrent = feederLeftMotor.getStatorCurrent();
+        feederLeftAppliedVolts = feederLeftMotor.getMotorVoltage();
+        feederRightVelocity = feederRightMotor.getVelocity();
+        feederRightSupplyCurrent = feederRightMotor.getSupplyCurrent();
+        feederRightStatorCurrent = feederRightMotor.getStatorCurrent();
+        feederRightAppliedVolts = feederRightMotor.getMotorVoltage();
+
+        BaseStatusSignal.setUpdateFrequencyForAll(
+                50,
+                hopperVelocity,
+                hopperCurrent,
+                feederLeftVelocity,
+                feederLeftSupplyCurrent,
+                feederLeftStatorCurrent,
+                feederLeftAppliedVolts,
+                feederRightVelocity,
+                feederRightSupplyCurrent,
+                feederRightStatorCurrent,
+                feederRightAppliedVolts);
         hopperMotor.optimizeBusUtilization();
         feederLeftMotor.optimizeBusUtilization();
         feederRightMotor.optimizeBusUtilization();
@@ -72,13 +105,22 @@ public class Hopper extends SubsystemBase {
         double voltage = running ? kFeedVoltage : 0.0;
         hopperMotor.setControl(voltageRequest.withOutput(voltage));
         feederLeftMotor.setControl(voltageRequest.withOutput(voltage));
-        feederRightMotor.setControl(voltageRequest.withOutput(voltage));
 
         telemetry.publishHopperState(new HopperSnapshot(
                 running,
                 voltage,
-                leftVelocity.getValueAsDouble(),
-                leftCurrent.getValueAsDouble()));
+                hopperVelocity.getValueAsDouble(),
+                hopperCurrent.getValueAsDouble()));
+        telemetry.publishHopperFeederState(
+                voltage,
+                feederLeftVelocity.getValueAsDouble(),
+                feederLeftSupplyCurrent.getValueAsDouble(),
+                feederLeftStatorCurrent.getValueAsDouble(),
+                feederLeftAppliedVolts.getValueAsDouble(),
+                feederRightVelocity.getValueAsDouble(),
+                feederRightSupplyCurrent.getValueAsDouble(),
+                feederRightStatorCurrent.getValueAsDouble(),
+                feederRightAppliedVolts.getValueAsDouble());
     }
 
     // --- Control ---

@@ -33,7 +33,7 @@ public class ShooterConstants {
         public static final double kHoodSupplyCurrentLimit = 25.0;
 
         // Hood launch-angle limits (projectile pitch from horizontal).
-        public static final Angle kMinHoodAngle = Degrees.of(15.0); // flattest shot
+        public static final Angle kMinHoodAngle = Degrees.of(9.695286); // flattest shot
         public static final Angle kMaxHoodAngle = Degrees.of(45.0); // steepest shot
 
         // Field Geometry
@@ -45,7 +45,7 @@ public class ShooterConstants {
         public static final double kHoodHomingVoltage = -2.0; // Toward min launch angle
         public static final double kHoodStallCurrentThreshold = 20.0; // Amps
         public static final double kHoodStallTimeThreshold = 0.1; // Seconds at stall
-        public static final Angle kHoodHomePosition = Degrees.of(14.0); // Launch angle at hardstop
+        public static final Angle kHoodHomePosition = Degrees.of(9.695286); // Launch angle at hardstop
 
         // Motor Configs
         public static final TalonFXConfiguration kFlywheelConfig = new TalonFXConfiguration();
@@ -74,23 +74,23 @@ public class ShooterConstants {
                 // so kV must be volts per mechanism RPS (not motor RPS).
                 // With 3:2 motor:wheel ratio and ~6000 RPM motor free speed:
                 // mechanism free speed ~= 100 / 1.5 = 66.7 RPS -> kV ~= 12 / 66.7 = 0.18.
-                kFlywheelConfig.Slot0.kV = 0.182;
+                kFlywheelConfig.Slot0.kV = 0.18;
                 kFlywheelConfig.Slot0.kS = 0.0;
                 kFlywheelConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-                kFlywheelConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
+                kFlywheelConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
                 kFlywheelConfig.Feedback.SensorToMechanismRatio = kFlywheelGearRatio;
                 kFlywheelConfig.CurrentLimits
                                 .withStatorCurrentLimit(kFlywheelStatorCurrentLimit)
                                 .withStatorCurrentLimitEnable(true);
 
-                // Flywheel Inverted Config (motors 2 & 4)
-                kFlywheelInvertedConfig.Slot0.kP = .1;
+                // Flywheel Inverted Config (motors 3 & 4)
+                kFlywheelInvertedConfig.Slot0.kP = .2;
                 kFlywheelInvertedConfig.Slot0.kI = 0.0;
                 kFlywheelInvertedConfig.Slot0.kD = 0.01;
-                kFlywheelInvertedConfig.Slot0.kV = 0.182;
+                kFlywheelInvertedConfig.Slot0.kV = 0.18;
                 kFlywheelInvertedConfig.Slot0.kS = 0.0;
                 kFlywheelInvertedConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
-                kFlywheelInvertedConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+                kFlywheelInvertedConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
                 kFlywheelInvertedConfig.Feedback.SensorToMechanismRatio = kFlywheelGearRatio;
                 kFlywheelInvertedConfig.CurrentLimits
                                 .withStatorCurrentLimit(kFlywheelStatorCurrentLimit)
@@ -104,7 +104,7 @@ public class ShooterConstants {
                 kHoodConfig.Slot0.kG = 0.2; // Gravity hold (Volts)
                 kHoodConfig.Slot0.GravityType = GravityTypeValue.Arm_Cosine;
                 kHoodConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-                kHoodConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
+                kHoodConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
                 kHoodConfig.Feedback.SensorToMechanismRatio = kHoodGearRatio;
                 kHoodConfig.CurrentLimits
                                 .withSupplyCurrentLimit(kHoodSupplyCurrentLimit)

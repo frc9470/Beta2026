@@ -10,8 +10,6 @@ import com.team9470.util.AutoAim;
 
 import com.team9470.subsystems.swerve.Swerve;
 
-import com.ctre.phoenix6.swerve.SwerveModule;
-import com.ctre.phoenix6.swerve.SwerveRequest;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.LinearFilter;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -388,9 +386,6 @@ public class Superstructure extends SubsystemBase {
             boolean useRobotSideForFeedTarget) {
         Swerve swerve = Swerve.getInstance();
         AtomicBoolean shooterReadyLatched = new AtomicBoolean(false);
-        // Use closed-loop velocity so commanding 0 m/s actively brakes (no drift)
-        SwerveRequest.FieldCentric aimDrive = new SwerveRequest.FieldCentric()
-                .withDriveRequestType(SwerveModule.DriveRequestType.Velocity);
         return Commands.run(() -> {
             Pose2d robotPose = poseSupplier.get();
             ChassisSpeeds robotSpeeds = speedsSupplier.get();
@@ -418,14 +413,21 @@ public class Superstructure extends SubsystemBase {
             shooter.setFiring(canFire);
             hopper.setRunning(shooterReadyLatched.get());
 
-            // Drive: pass through translation, auto-aim rotation (closed-loop velocity)
-            swerve.setControl(aimDrive
-                    .withVelocityX(limitedTranslation.getX())
-                    .withVelocityY(limitedTranslation.getY())
-                    .withRotationalRate(result.rotationCommand()));
+            // Drive through the chassis-speed path that also works in autos.
+            swerve.setChassisSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(
+                    limitedTranslation.getX(),
+                    limitedTranslation.getY(),
+                    result.rotationCommand(),
+                    robotPose.getRotation()));
 
             // Telemetry
-            publishTelemetry(result.isAligned(), canFire, result.rotationCommand(), result.rotationErrorRad());
+            publishTelemetry(
+                    true,
+                    result.isAligned(),
+                    canFire,
+                    result.rotationCommand(),
+                    result.rotationErrorRad(),
+                    limitedTranslation.getNorm());
 
         }, this, swerve).finallyDo(() -> {
             shooter.stop();
@@ -434,10 +436,12 @@ public class Superstructure extends SubsystemBase {
             intake.setAgitating(false);
             shooterReadyLatched.set(false);
             resetAimSetpointDerivatives();
-            swerve.setControl(aimDrive.withVelocityX(0).withVelocityY(0).withRotationalRate(0));
+            telemetry.publishDriveAutoAim(false, 0.0, 0.0);
+            swerve.setChassisSpeeds(new ChassisSpeeds());
         }).beforeStarting(() -> {
             shooterReadyLatched.set(false);
             resetAimSetpointDerivatives();
+            telemetry.publishDriveAutoAim(false, 0.0, 0.0);
         })
                 .withName("Superstructure AimAndShoot");
     }
@@ -465,7 +469,7 @@ public class Superstructure extends SubsystemBase {
             shooter.setFiring(canFire);
             hopper.setRunning(shooterReadyLatched.get());
 
-            publishTelemetry(false, canFire, 0.0, 0.0);
+            publishTelemetry(false, false, canFire, 0.0, 0.0, 0.0);
         }, this).finallyDo(() -> {
             shooter.stop();
             hopper.stop();
@@ -502,7 +506,14 @@ public class Superstructure extends SubsystemBase {
         return hopper;
     }
 
-    private void publishTelemetry(boolean isAligned, boolean canFire, double rotCmd, double rotErrorRad) {
+    private void publishTelemetry(
+            boolean autoAimActive,
+            boolean isAligned,
+            boolean canFire,
+            double rotCmd,
+            double rotErrorRad,
+            double transLimitMps) {
+        telemetry.publishDriveAutoAim(autoAimActive, rotCmd, transLimitMps);
         telemetry.publishSuperstructureState(new SuperstructureSnapshot(isAligned, canFire, rotCmd, rotErrorRad));
     }
 }

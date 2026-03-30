@@ -17,13 +17,17 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 import com.team9470.subsystems.swerve.Swerve;
 import com.team9470.subsystems.Superstructure;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationConfig;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationMode;
 import com.team9470.subsystems.shooter.ShooterConstants;
+import com.team9470.util.AutoAim;
 import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import com.team9470.Constants.OperatorConstants;
 import com.team9470.subsystems.vision.Vision;
+import java.util.concurrent.atomic.AtomicBoolean;
 import static edu.wpi.first.units.Units.*;
 
 public class RobotContainer {
@@ -57,6 +61,7 @@ public class RobotContainer {
   private static final double kIntakeHeadingLockMinSpeedMps = 0.15;
   private static final double kIntakeHeadingLockKp = 3.5;
   private static final double kIntakeHeadingManualOverrideDeadband = 0.10;
+  private final ShooterCharacterizationConfig shooterCharacterizationConfig = ShooterCharacterizationConfig.defaults();
 
   public RobotContainer() {
     // Connect swerve context to superstructure
@@ -65,6 +70,7 @@ public class RobotContainer {
         m_swerve::getChassisSpeeds);
 
     initDebugYShotDashboard();
+    configureCharacterizationDashboard();
     configureBindings();
     configureAutonomous();
   }
@@ -72,6 +78,28 @@ public class RobotContainer {
   private void initDebugYShotDashboard() {
     SmartDashboard.putNumber(kDebugYShotRpmKey, kDebugYShotDefaultRpm);
     SmartDashboard.putNumber(kDebugYShotHoodDegKey, kDebugYShotDefaultHoodDeg);
+  }
+
+  private void configureCharacterizationDashboard() {
+    SmartDashboard.putData(
+        "ShooterChar/VelocityHoldSweep",
+        createShooterCharacterizationCommand(
+            ShooterCharacterizationMode.VELOCITY_HOLD_SWEEP,
+            "Shooter Velocity Hold Sweep"));
+    SmartDashboard.putData(
+        "ShooterChar/OpenLoopVoltageSweep",
+        createShooterCharacterizationCommand(
+            ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP,
+            "Shooter Open-Loop Voltage Sweep"));
+    SmartDashboard.putData(
+        "ShooterChar/ClosedLoopStepSweep",
+        createShooterCharacterizationCommand(
+            ShooterCharacterizationMode.CLOSED_LOOP_STEP_SWEEP,
+            "Shooter Closed-Loop Step Sweep"));
+    SmartDashboard.putData(
+        "ShooterChar/Stop",
+        Commands.runOnce(() -> m_superstructure.getShooter().stopCharacterization(), m_superstructure.getShooter())
+            .withName("Shooter Characterization Stop"));
   }
 
   private final SwerveRequest.SwerveDriveBrake xLock = new SwerveRequest.SwerveDriveBrake();
@@ -146,9 +174,10 @@ public class RobotContainer {
     // A: Debug - Run hopper while held
     m_driverController.a().whileTrue(m_superstructure.getHopper().runCommand());
 
-    // Y: Debug - Spin up shooter + set hood from dashboard + feed hopper while held
+    // Y: Debug - Spin up shooter + set hood from dashboard, feed once ready
+    AtomicBoolean debugYShotReadyLatched = new AtomicBoolean(false);
     m_driverController.y().whileTrue(
-        Commands.runEnd(
+        Commands.run(
             () -> {
               double requestedRpm = SmartDashboard.getNumber(kDebugYShotRpmKey, kDebugYShotDefaultRpm);
               double requestedHoodDeg = SmartDashboard.getNumber(kDebugYShotHoodDegKey, kDebugYShotDefaultHoodDeg);
@@ -158,17 +187,21 @@ public class RobotContainer {
                   ShooterConstants.kMinHoodAngle.in(Degrees),
                   Math.min(ShooterConstants.kMaxHoodAngle.in(Degrees), hoodDeg));
               double targetRps = rpm / 60.0;
+              double distanceMeters = AutoAim.getDistanceMeters(m_swerve.getPose());
 
               m_superstructure.getShooter().setFlywheelSpeed(targetRps);
               m_superstructure.getShooter().setHoodAngle(
                   ShooterConstants.launchRadToMechanismRotations(Math.toRadians(clampedHoodDeg)));
+
               boolean shooterAtSetpoint = m_superstructure.getShooter().isAtSetpoint();
+              if (shooterAtSetpoint) {
+                debugYShotReadyLatched.set(true);
+              }
+
               m_superstructure.getIntake().setShooting(true);
               m_superstructure.getIntake().setAgitating(true);
-              // Y debug should force-feed immediately instead of waiting for shooter
-              // readiness.
-              m_superstructure.getShooter().setFiring(true);
-              m_superstructure.getHopper().setRunning(true);
+              m_superstructure.getShooter().setFiring(shooterAtSetpoint);
+              m_superstructure.getHopper().setRunning(debugYShotReadyLatched.get());
 
               telemetry.publishYShotState(new YShotSnapshot(
                   true,
@@ -176,15 +209,22 @@ public class RobotContainer {
                   Math.toRadians(requestedHoodDeg),
                   rpm / 60.0,
                   Math.toRadians(clampedHoodDeg),
-                  shooterAtSetpoint));
+                  distanceMeters,
+                  debugYShotReadyLatched.get()));
             },
-            () -> {
+            m_superstructure.getShooter(),
+            m_superstructure.getHopper(),
+            m_superstructure.getIntake())
+            .beforeStarting(() -> debugYShotReadyLatched.set(false))
+            .finallyDo(() -> {
               m_superstructure.getShooter().stop();
               m_superstructure.getHopper().stop();
               m_superstructure.getIntake().setShooting(false);
               m_superstructure.getIntake().setAgitating(false);
+              debugYShotReadyLatched.set(false);
               telemetry.publishYShotState(new YShotSnapshot(
                   false,
+                  0.0,
                   0.0,
                   0.0,
                   0.0,
@@ -223,5 +263,30 @@ public class RobotContainer {
 
   public Command getAutonomousCommand() {
     return m_autoChooser.selectedCommandScheduler();
+  }
+
+  private Command createShooterCharacterizationCommand(
+      ShooterCharacterizationMode mode,
+      String name) {
+    return Commands.sequence(
+        Commands.runOnce(() -> {
+          m_superstructure.getHopper().stop();
+          m_superstructure.getIntake().setShooting(false);
+          m_superstructure.getIntake().setAgitating(false);
+          m_superstructure.getShooter().startCharacterization(shooterCharacterizationConfig, mode);
+        }, m_superstructure.getShooter(), m_superstructure.getHopper(), m_superstructure.getIntake()),
+        Commands.run(() -> {
+          m_superstructure.getHopper().stop();
+          m_superstructure.getIntake().setShooting(false);
+          m_superstructure.getIntake().setAgitating(false);
+        }, m_superstructure.getShooter(), m_superstructure.getHopper(), m_superstructure.getIntake())
+            .until(() -> !m_superstructure.getShooter().isCharacterizing()))
+        .finallyDo(interrupted -> {
+          m_superstructure.getShooter().stopCharacterization();
+          m_superstructure.getHopper().stop();
+          m_superstructure.getIntake().setShooting(false);
+          m_superstructure.getIntake().setAgitating(false);
+        })
+        .withName(name);
   }
 }
