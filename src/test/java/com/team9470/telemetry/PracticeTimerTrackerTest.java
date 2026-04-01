@@ -16,6 +16,7 @@ class PracticeTimerTrackerTest {
     private static DriverStationSample sample(
             double nowSec,
             MatchType matchType,
+            boolean fmsAttached,
             boolean autoEnabled,
             boolean teleopEnabled,
             boolean testEnabled,
@@ -24,7 +25,7 @@ class PracticeTimerTrackerTest {
         return new DriverStationSample(
                 nowSec,
                 matchType,
-                false,
+                fmsAttached,
                 true,
                 autoEnabled,
                 teleopEnabled,
@@ -33,6 +34,17 @@ class PracticeTimerTrackerTest {
                 matchTimeSec,
                 Optional.of(Alliance.Blue),
                 "");
+    }
+
+    private static DriverStationSample sample(
+            double nowSec,
+            MatchType matchType,
+            boolean autoEnabled,
+            boolean teleopEnabled,
+            boolean testEnabled,
+            boolean disabled,
+            double matchTimeSec) {
+        return sample(nowSec, matchType, false, autoEnabled, teleopEnabled, testEnabled, disabled, matchTimeSec);
     }
 
     @Test
@@ -112,15 +124,15 @@ class PracticeTimerTrackerTest {
     }
 
     @Test
-    void autoEdgeFallbackStartsWhenMatchTypeUnavailable() {
+    void autoEnableOutsidePracticeAndFmsDoesNotStartRun() {
         PracticeTimerTracker tracker = new PracticeTimerTracker();
         tracker.update(sample(0.00, MatchType.None, false, false, false, true, 0.0));
 
         var out = tracker.update(sample(0.02, MatchType.None, true, false, false, false, 15.0));
 
-        assertEquals(Phase.AUTO.code(), out.snapshot().phaseCode());
-        assertEquals(PracticeTimerTracker.START_SOURCE_AUTO_EDGE_FALLBACK, out.snapshot().startSourceCode());
-        assertFalse(out.snapshot().practiceMatchTypeDetected());
+        assertEquals(Phase.IDLE.code(), out.snapshot().phaseCode());
+        assertEquals(0, out.snapshot().runId());
+        assertFalse(out.snapshot().active());
     }
 
     @Test
@@ -132,6 +144,30 @@ class PracticeTimerTrackerTest {
         assertEquals(Phase.IDLE.code(), out.snapshot().phaseCode());
         assertEquals(0, out.snapshot().runId());
         assertFalse(out.snapshot().active());
+    }
+
+    @Test
+    void teleopEnableOnFmsStartsRun() {
+        PracticeTimerTracker tracker = new PracticeTimerTracker();
+        tracker.update(sample(0.00, MatchType.None, true, false, false, false, true, 0.0));
+
+        var out = tracker.update(sample(0.02, MatchType.None, true, false, true, false, false, 120.0));
+
+        assertEquals(Phase.TELEOP.code(), out.snapshot().phaseCode());
+        assertEquals(PracticeTimerTracker.START_SOURCE_AUTO_EDGE_FALLBACK, out.snapshot().startSourceCode());
+        assertTrue(out.snapshot().active());
+    }
+
+    @Test
+    void autoEnableOnFmsStartsRun() {
+        PracticeTimerTracker tracker = new PracticeTimerTracker();
+        tracker.update(sample(0.00, MatchType.None, true, false, false, false, true, 0.0));
+
+        var out = tracker.update(sample(0.02, MatchType.None, true, true, false, false, false, 15.0));
+
+        assertEquals(Phase.AUTO.code(), out.snapshot().phaseCode());
+        assertEquals(PracticeTimerTracker.START_SOURCE_AUTO_EDGE_FALLBACK, out.snapshot().startSourceCode());
+        assertTrue(out.snapshot().active());
     }
 
     @Test

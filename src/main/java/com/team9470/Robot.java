@@ -4,6 +4,7 @@
 
 package com.team9470;
 
+import com.team9470.telemetry.MatchTimingService;
 import com.team9470.telemetry.PracticeTimerTracker;
 import com.team9470.telemetry.TelemetryManager;
 import edu.wpi.first.units.Units;
@@ -19,6 +20,7 @@ public class Robot extends TimedRobot {
   private Command m_autonomousCommand;
 
   private final RobotContainer m_robotContainer;
+  private final MatchTimingService matchTimingService = MatchTimingService.getInstance();
   private final TelemetryManager telemetry = TelemetryManager.getInstance();
   private final PracticeTimerTracker practiceTimerTracker = new PracticeTimerTracker();
 
@@ -30,9 +32,6 @@ public class Robot extends TimedRobot {
 
   @Override
   public void robotPeriodic() {
-
-    CommandScheduler.getInstance().run();
-
     MatchType matchType = DriverStation.getMatchType();
     var practiceTimerOutput = practiceTimerTracker.update(new PracticeTimerTracker.DriverStationSample(
         Timer.getFPGATimestamp(),
@@ -46,10 +45,13 @@ public class Robot extends TimedRobot {
         DriverStation.getMatchTime(),
         DriverStation.getAlliance(),
         DriverStation.getGameSpecificMessage()));
+    matchTimingService.update(practiceTimerOutput);
     telemetry.publishPracticeTimerState(
         practiceTimerOutput.snapshot(),
         practiceTimerOutput.phaseLabel(),
         practiceTimerOutput.zoneLabel());
+
+    CommandScheduler.getInstance().run();
   }
 
   @Override

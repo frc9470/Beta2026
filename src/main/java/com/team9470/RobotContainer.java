@@ -70,7 +70,6 @@ public class RobotContainer {
         m_swerve::getChassisSpeeds);
 
     initDebugYShotDashboard();
-    configureCharacterizationDashboard();
     configureBindings();
     configureAutonomous();
   }
@@ -78,28 +77,6 @@ public class RobotContainer {
   private void initDebugYShotDashboard() {
     SmartDashboard.putNumber(kDebugYShotRpmKey, kDebugYShotDefaultRpm);
     SmartDashboard.putNumber(kDebugYShotHoodDegKey, kDebugYShotDefaultHoodDeg);
-  }
-
-  private void configureCharacterizationDashboard() {
-    SmartDashboard.putData(
-        "ShooterChar/VelocityHoldSweep",
-        createShooterCharacterizationCommand(
-            ShooterCharacterizationMode.VELOCITY_HOLD_SWEEP,
-            "Shooter Velocity Hold Sweep"));
-    SmartDashboard.putData(
-        "ShooterChar/OpenLoopVoltageSweep",
-        createShooterCharacterizationCommand(
-            ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP,
-            "Shooter Open-Loop Voltage Sweep"));
-    SmartDashboard.putData(
-        "ShooterChar/ClosedLoopStepSweep",
-        createShooterCharacterizationCommand(
-            ShooterCharacterizationMode.CLOSED_LOOP_STEP_SWEEP,
-            "Shooter Closed-Loop Step Sweep"));
-    SmartDashboard.putData(
-        "ShooterChar/Stop",
-        Commands.runOnce(() -> m_superstructure.getShooter().stopCharacterization(), m_superstructure.getShooter())
-            .withName("Shooter Characterization Stop"));
   }
 
   private final SwerveRequest.SwerveDriveBrake xLock = new SwerveRequest.SwerveDriveBrake();
@@ -232,8 +209,30 @@ public class RobotContainer {
                   false));
             }));
 
+    // D-pad Up: Stage a note at the top beam break without entering the shooter
+    m_driverController.povUp().onTrue(m_superstructure.stagePreloadCommand());
+
+    // D-pad Left/Down/Right: Shooter characterization debug shortcuts
+    m_driverController.povLeft().onTrue(
+        createShooterCharacterizationCommand(
+            ShooterCharacterizationMode.VELOCITY_HOLD_SWEEP,
+            "Shooter Velocity Hold Sweep"));
+    m_driverController.povDown().onTrue(
+        createShooterCharacterizationCommand(
+            ShooterCharacterizationMode.CLOSED_LOOP_STEP_SWEEP,
+            "Shooter Closed-Loop Step Sweep"));
+    m_driverController.povRight().onTrue(
+        createShooterCharacterizationCommand(
+            ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP,
+            "Shooter Open-Loop Voltage Sweep"));
+
     // Right Stick (press): Low-priority manual re-home for intake + hood
     m_driverController.rightStick().onTrue(m_superstructure.homeIntakeAndHoodCommand());
+
+    // Left Stick (press): Stop shooter characterization
+    m_driverController.leftStick().onTrue(
+        Commands.runOnce(() -> m_superstructure.getShooter().stopCharacterization(), m_superstructure.getShooter())
+            .withName("Shooter Characterization Stop"));
 
     // ==================== DEFAULT COMMANDS ====================
     m_swerve.setDefaultCommand(

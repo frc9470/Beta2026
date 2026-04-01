@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
 import com.team9470.telemetry.structs.DriveStatusSnapshot;
+import com.team9470.telemetry.structs.HopperPreloadSnapshot;
 import com.team9470.telemetry.structs.HopperSnapshot;
 import com.team9470.telemetry.structs.IntakeSnapshot;
 import com.team9470.telemetry.structs.PracticeTimerSnapshot;
@@ -11,6 +12,7 @@ import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import com.team9470.telemetry.structs.ShooterSnapshot;
 import com.team9470.telemetry.structs.SimSnapshot;
 import com.team9470.telemetry.structs.SuperstructureSnapshot;
+import com.team9470.telemetry.structs.TimedShotSnapshot;
 import com.team9470.telemetry.structs.VisionCameraSnapshot;
 import com.team9470.telemetry.structs.VisionSnapshot;
 import com.team9470.telemetry.structs.YShotSnapshot;
@@ -85,7 +87,12 @@ class SnapshotStructsTest {
 
     @Test
     void hopperRoundTrip() {
-        assertRoundTrip(HopperSnapshot.struct, new HopperSnapshot(true, 10.5, 25.0, 30.0));
+        assertRoundTrip(HopperSnapshot.struct, new HopperSnapshot(true, 10.5, 9.0, 25.0, 30.0, true, false));
+    }
+
+    @Test
+    void hopperPreloadRoundTrip() {
+        assertRoundTrip(HopperPreloadSnapshot.struct, new HopperPreloadSnapshot(true, 3, 2));
     }
 
     @Test
@@ -115,7 +122,12 @@ class SnapshotStructsTest {
 
     @Test
     void yShotRoundTrip() {
-        assertRoundTrip(YShotSnapshot.struct, new YShotSnapshot(true, 50.0, 0.6, 48.0, 0.58, true));
+        assertRoundTrip(YShotSnapshot.struct, new YShotSnapshot(true, 50.0, 0.6, 48.0, 0.58, 3.2, true));
+    }
+
+    @Test
+    void timedShotRoundTrip() {
+        assertRoundTrip(TimedShotSnapshot.struct, new TimedShotSnapshot(true, true, false, true, false, 1.25, 0.42, false, 2, false));
     }
 
     @Test

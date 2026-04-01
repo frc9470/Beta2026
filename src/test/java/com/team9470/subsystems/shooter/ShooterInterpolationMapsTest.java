@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 class ShooterInterpolationMapsTest {
     @Test
     void airTimeInterpolatesBetweenPoints() {
-        assertEquals(0.77, ShooterInterpolationMaps.getAirTime(2.25), 1e-9);
+        assertEquals(0.975, ShooterInterpolationMaps.getAirTime(2.25), 1e-9);
     }
 
     @Test

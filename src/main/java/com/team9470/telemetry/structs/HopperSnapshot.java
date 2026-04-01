@@ -6,8 +6,11 @@ import edu.wpi.first.util.struct.StructSerializable;
 
 public record HopperSnapshot(
         boolean running,
-        double appliedVolts,
-        double leftVelocityRps,
-        double leftSupplyCurrentAmps) implements StructSerializable {
+        double hopperCommandedVolts,
+        double feederCommandedVolts,
+        double hopperVelocityRps,
+        double hopperSupplyCurrentAmps,
+        boolean topBeamBreakRawBlocked,
+        boolean topBeamBreakBlocked) implements StructSerializable {
     public static final Struct<HopperSnapshot> struct = StructGenerator.genRecord(HopperSnapshot.class);
 }

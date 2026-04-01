@@ -3,12 +3,14 @@ package com.team9470.telemetry;
 import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
 import com.team9470.telemetry.structs.DriveStatusSnapshot;
 import com.team9470.telemetry.structs.HopperSnapshot;
+import com.team9470.telemetry.structs.HopperPreloadSnapshot;
 import com.team9470.telemetry.structs.IntakeSnapshot;
 import com.team9470.telemetry.structs.PracticeTimerSnapshot;
 import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import com.team9470.telemetry.structs.ShooterSnapshot;
 import com.team9470.telemetry.structs.SimSnapshot;
 import com.team9470.telemetry.structs.SuperstructureSnapshot;
+import com.team9470.telemetry.structs.TimedShotSnapshot;
 import com.team9470.telemetry.structs.VisionCameraSnapshot;
 import com.team9470.telemetry.structs.VisionSnapshot;
 import com.team9470.telemetry.structs.YShotSnapshot;
@@ -126,6 +128,8 @@ public final class TelemetryManager {
     private final NetworkTable hopperTable = telemetryTable.getSubTable("Hopper");
     private final StructPublisher<HopperSnapshot> hopperStatePublisher = hopperTable
             .getStructTopic("State", HopperSnapshot.struct).publish();
+    private final StructPublisher<HopperPreloadSnapshot> hopperPreloadPublisher = hopperTable
+            .getStructTopic("Preload", HopperPreloadSnapshot.struct).publish();
     private final NetworkTable hopperFeederTable = hopperTable.getSubTable("Feeder");
     private final DoublePublisher hopperFeederCommandedVoltsPublisher = TelemetryUtil.publishDouble(
             hopperFeederTable, "CommandedVolts", "V");
@@ -174,6 +178,8 @@ public final class TelemetryManager {
             "Drive/AutoAimTransLimitMps", "m/s");
     private final StructPublisher<YShotSnapshot> yShotPublisher = controlsTable.getStructTopic("YShot/State", YShotSnapshot.struct)
             .publish();
+    private final StructPublisher<TimedShotSnapshot> timedShotPublisher = controlsTable
+            .getStructTopic("TimedShot/State", TimedShotSnapshot.struct).publish();
 
     private final NetworkTable practiceTimerTable = telemetryTable.getSubTable("PracticeTimer");
     private final StructPublisher<PracticeTimerSnapshot> practiceTimerStatePublisher = practiceTimerTable
@@ -321,6 +327,10 @@ public final class TelemetryManager {
         hopperStatePublisher.set(snapshot);
     }
 
+    public void publishHopperPreloadState(HopperPreloadSnapshot snapshot) {
+        hopperPreloadPublisher.set(snapshot);
+    }
+
     public void publishHopperFeederState(
             double commandedVolts,
             double leftVelocityRps,
@@ -399,6 +409,10 @@ public final class TelemetryManager {
 
     public void publishYShotState(YShotSnapshot snapshot) {
         yShotPublisher.set(snapshot);
+    }
+
+    public void publishTimedShotState(TimedShotSnapshot snapshot) {
+        timedShotPublisher.set(snapshot);
     }
 
     public void publishPracticeTimerState(PracticeTimerSnapshot snapshot, String phaseLabel, String zoneLabel) {

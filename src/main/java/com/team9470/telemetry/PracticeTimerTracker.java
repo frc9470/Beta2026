@@ -119,6 +119,7 @@ public class PracticeTimerTracker {
 
     private boolean lastPracticeSelected = false;
     private boolean lastAutonomousEnabled = false;
+    private boolean lastTeleopEnabled = false;
 
     private boolean dsMatchTimeRejectedForPhase = false;
     private double lastDsMatchTimeSec = Double.NaN;
@@ -142,6 +143,7 @@ public class PracticeTimerTracker {
         boolean practiceSelected = !sample.isFMSAttached() && sample.matchType() == MatchType.Practice;
         boolean practiceEdge = practiceSelected && !lastPracticeSelected;
         boolean autoEnabledEdge = sample.isAutonomousEnabled() && !lastAutonomousEnabled;
+        boolean teleopEnabledEdge = sample.isTeleopEnabled() && !lastTeleopEnabled;
 
         if (practiceEdge && !isActivePhase(phase)) {
             startRun(sample.nowSec(), START_SOURCE_PRACTICE_EDGE);
@@ -153,17 +155,26 @@ public class PracticeTimerTracker {
             } else {
                 enterPhase(Phase.ARMED, sample.nowSec());
             }
-        } else if (autoEnabledEdge && !sample.isFMSAttached() && !isActivePhase(phase)) {
+        } else if (!isActivePhase(phase)
+                && (sample.isFMSAttached() || practiceSelected)
+                && (autoEnabledEdge || teleopEnabledEdge)) {
             startRun(sample.nowSec(), START_SOURCE_AUTO_EDGE_FALLBACK);
             if (practiceSelected) {
                 practiceMatchTypeDetected = true;
             }
-            enterPhase(Phase.AUTO, sample.nowSec());
+            if (sample.isAutonomousEnabled()) {
+                enterPhase(Phase.AUTO, sample.nowSec());
+            } else if (sample.isTeleopEnabled()) {
+                enterPhase(Phase.TELEOP, sample.nowSec());
+            } else {
+                enterPhase(Phase.ARMED, sample.nowSec());
+            }
         }
 
         if (!isRunInitialized() && phase == Phase.IDLE) {
             lastPracticeSelected = practiceSelected;
             lastAutonomousEnabled = sample.isAutonomousEnabled();
+            lastTeleopEnabled = sample.isTeleopEnabled();
             return buildOutput(sample, new PhaseTiming(false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, sample.matchTimeSec()));
         }
 
@@ -202,6 +213,7 @@ public class PracticeTimerTracker {
 
         lastPracticeSelected = practiceSelected;
         lastAutonomousEnabled = sample.isAutonomousEnabled();
+        lastTeleopEnabled = sample.isTeleopEnabled();
 
         return new Output(snapshot, phase.label(), zoneTiming.zone().label());
     }

@@ -17,6 +17,7 @@ public class Ports {
     public static final CanDeviceId FEEDER_RIGHT = new CanDeviceId(5, CANIVORE);
     public static final CanDeviceId FEEDER_LEFT = new CanDeviceId(6, CANIVORE);
     public static final CanDeviceId HOPPER_MOTOR = new CanDeviceId(8, CANIVORE);
+    public static final int FEEDER_TOP_BEAM_BREAK_DIO = 0;
 
     // ==================== INTAKE (RIO bus) ====================
     public static final CanDeviceId INTAKE_PIVOT = new CanDeviceId(9, CANIVORE);

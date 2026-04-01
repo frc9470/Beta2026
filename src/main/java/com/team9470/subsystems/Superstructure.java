@@ -4,9 +4,13 @@ import com.team9470.TunerConstants;
 import com.team9470.subsystems.hopper.Hopper;
 import com.team9470.subsystems.intake.Intake;
 import com.team9470.subsystems.shooter.Shooter;
+import com.team9470.telemetry.MatchTimingService;
 import com.team9470.telemetry.TelemetryManager;
+import com.team9470.telemetry.structs.HopperPreloadSnapshot;
 import com.team9470.telemetry.structs.SuperstructureSnapshot;
+import com.team9470.telemetry.structs.TimedShotSnapshot;
 import com.team9470.util.AutoAim;
+import com.team9470.util.TimedFirePolicy;
 
 import com.team9470.subsystems.swerve.Swerve;
 
@@ -16,6 +20,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -42,6 +47,7 @@ public class Superstructure extends SubsystemBase {
     private final Shooter shooter;
     private final Intake intake;
     private final Hopper hopper;
+    private final MatchTimingService matchTimingService = MatchTimingService.getInstance();
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     // Context suppliers (set by RobotContainer)
@@ -60,6 +66,22 @@ public class Superstructure extends SubsystemBase {
     private static final double kSotmFireSafetyMinSpeedMps = 0.35;
     private static final double kSotmMaxAccelerationForFireMps2 = 3.5;
     private static final double kSotmMaxOmegaForFireRadPerSec = Math.toRadians(220.0);
+    private static final double kPreloadSettleVolts = -6.0;
+    private static final double kPreloadSettleSec = 0.30;
+    private static final double kPreloadStageHopperVolts = -4.0;
+    private static final double kPreloadStageFeederVolts = -2.0;
+    private static final double kPreloadTimeoutSec = 2.5;
+    private static final double kPreloadJamCurrentAmps = 18.0;
+    private static final double kPreloadJamVelocityRps = 1.0;
+    private static final double kPreloadJamDebounceSec = 0.20;
+    private static final int PRELOAD_PHASE_IDLE = 0;
+    private static final int PRELOAD_PHASE_ALREADY_STAGED = 1;
+    private static final int PRELOAD_PHASE_SETTLING = 2;
+    private static final int PRELOAD_PHASE_STAGING = 3;
+    private static final int PRELOAD_PHASE_DONE = 4;
+    private static final int PRELOAD_FAULT_NONE = 0;
+    private static final int PRELOAD_FAULT_TIMEOUT = 1;
+    private static final int PRELOAD_FAULT_JAM = 2;
     private LinearFilter driveAngleRateFilter = createMovingAverageFilter(kDriveAngleDerivativeFilterWindowSec);
     private LinearFilter hoodRateFilter = createMovingAverageFilter(kHoodDerivativeFilterWindowSec);
     private LinearFilter flywheelRateFilter = createMovingAverageFilter(kFlywheelDerivativeFilterWindowSec);
@@ -72,6 +94,8 @@ public class Superstructure extends SubsystemBase {
         shooter = new Shooter();
         intake = Intake.getInstance();
         hopper = Hopper.getInstance();
+        publishPreloadState(false, PRELOAD_PHASE_IDLE, PRELOAD_FAULT_NONE);
+        resetTimedShotState();
     }
 
     /**
@@ -170,6 +194,82 @@ public class Superstructure extends SubsystemBase {
             intake.requestHome();
             shooter.requestHome();
         }, intake, shooter).withName("Superstructure Home Intake+Hood");
+    }
+
+    public Command stagePreloadCommand() {
+        final int[] phaseCode = { PRELOAD_PHASE_IDLE };
+        final int[] faultCode = { PRELOAD_FAULT_NONE };
+        final boolean[] finished = { false };
+        final double[] commandStartSec = { Double.NaN };
+        final double[] phaseStartSec = { Double.NaN };
+        final double[] jamStartSec = { Double.NaN };
+
+        return Commands.run(() -> {
+            double nowSec = Timer.getFPGATimestamp();
+            if (phaseCode[0] != PRELOAD_PHASE_ALREADY_STAGED && hopper.isTopBeamBreakBlocked()) {
+                phaseCode[0] = PRELOAD_PHASE_DONE;
+                finished[0] = true;
+                publishPreloadState(true, phaseCode[0], faultCode[0]);
+                return;
+            }
+            if (nowSec - commandStartSec[0] >= kPreloadTimeoutSec) {
+                faultCode[0] = PRELOAD_FAULT_TIMEOUT;
+                finished[0] = true;
+                publishPreloadState(true, phaseCode[0], faultCode[0]);
+                return;
+            }
+
+            if (phaseCode[0] == PRELOAD_PHASE_SETTLING) {
+                hopper.setHopperVoltage(kPreloadSettleVolts);
+                hopper.setFeederVoltage(0.0);
+                if (nowSec - phaseStartSec[0] >= kPreloadSettleSec) {
+                    phaseCode[0] = PRELOAD_PHASE_STAGING;
+                    phaseStartSec[0] = nowSec;
+                }
+            } else if (phaseCode[0] == PRELOAD_PHASE_STAGING) {
+                hopper.setHopperVoltage(kPreloadStageHopperVolts);
+                hopper.setFeederVoltage(kPreloadStageFeederVolts);
+
+                double averageFeederCurrentAmps = (
+                        Math.abs(hopper.getFeederLeftStatorCurrentAmps()) + Math.abs(hopper.getFeederRightStatorCurrentAmps()))
+                        * 0.5;
+                double averageFeederVelocityRps = (
+                        Math.abs(hopper.getFeederLeftVelocityRps()) + Math.abs(hopper.getFeederRightVelocityRps()))
+                        * 0.5;
+                boolean jamDetected = averageFeederCurrentAmps > kPreloadJamCurrentAmps
+                        && averageFeederVelocityRps < kPreloadJamVelocityRps;
+                if (jamDetected) {
+                    if (!Double.isFinite(jamStartSec[0])) {
+                        jamStartSec[0] = nowSec;
+                    } else if (nowSec - jamStartSec[0] >= kPreloadJamDebounceSec) {
+                        faultCode[0] = PRELOAD_FAULT_JAM;
+                        finished[0] = true;
+                    }
+                } else {
+                    jamStartSec[0] = Double.NaN;
+                }
+            }
+            publishPreloadState(true, phaseCode[0], faultCode[0]);
+        }, this, hopper).beforeStarting(() -> {
+            double nowSec = Timer.getFPGATimestamp();
+            finished[0] = false;
+            faultCode[0] = PRELOAD_FAULT_NONE;
+            commandStartSec[0] = nowSec;
+            phaseStartSec[0] = nowSec;
+            jamStartSec[0] = Double.NaN;
+            hopper.stopAll();
+
+            if (hopper.isTopBeamBreakBlocked()) {
+                phaseCode[0] = PRELOAD_PHASE_ALREADY_STAGED;
+                finished[0] = true;
+            } else {
+                phaseCode[0] = PRELOAD_PHASE_SETTLING;
+            }
+            publishPreloadState(true, phaseCode[0], faultCode[0]);
+        }).until(() -> finished[0]).finallyDo(() -> {
+            hopper.stopAll();
+            publishPreloadState(false, phaseCode[0], faultCode[0]);
+        }).withName("Superstructure StagePreload");
     }
 
     /**
@@ -386,6 +486,8 @@ public class Superstructure extends SubsystemBase {
             boolean useRobotSideForFeedTarget) {
         Swerve swerve = Swerve.getInstance();
         AtomicBoolean shooterReadyLatched = new AtomicBoolean(false);
+        AtomicBoolean armedDuringInactiveThisHold = new AtomicBoolean(false);
+        AtomicBoolean timedReleaseStartedThisHold = new AtomicBoolean(false);
         return Commands.run(() -> {
             Pose2d robotPose = poseSupplier.get();
             ChassisSpeeds robotSpeeds = speedsSupplier.get();
@@ -403,15 +505,38 @@ public class Superstructure extends SubsystemBase {
                     && result.solution().isValid()
                     && shooterAtSetpoint
                     && isSotmFireSafe(result.solution(), robotSpeeds);
+            boolean shotIsFeedMode = AutoAim.isFeedModeActive(robotPose);
+            var timedFireDecision = TimedFirePolicy.evaluate(
+                    true,
+                    matchTimingService.timingKnown(),
+                    matchTimingService.zoneActive(),
+                    matchTimingService.zoneRemainingSec(),
+                    armedDuringInactiveThisHold.get(),
+                    hopper.isTopBeamBreakBlocked(),
+                    shooterAtSetpoint,
+                    result.isAligned(),
+                    result.solution().isValid(),
+                    shotIsFeedMode,
+                    result.solution());
+            if (timedFireDecision.allowFeed()) {
+                timedReleaseStartedThisHold.set(true);
+            }
             Translation2d limitedTranslation = limitTranslationForLaunch(
                     robotPose,
                     result.solution(),
                     vxSupplier.get(),
                     vySupplier.get());
 
-            // Wait for initial shooter readiness, then feed continuously.
-            shooter.setFiring(canFire);
-            hopper.setRunning(shooterReadyLatched.get());
+            boolean useNormalFeedPath = !timedFireDecision.timedAutoArmCandidate() || timedReleaseStartedThisHold.get();
+            boolean feederShouldRun = useNormalFeedPath
+                    ? shooterReadyLatched.get()
+                    : timedFireDecision.allowFeed();
+            boolean shooterShouldFire = useNormalFeedPath
+                    ? canFire
+                    : timedFireDecision.allowFeed();
+
+            shooter.setFiring(shooterShouldFire);
+            hopper.setRunning(feederShouldRun);
 
             // Drive through the chassis-speed path that also works in autos.
             swerve.setChassisSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(
@@ -424,10 +549,21 @@ public class Superstructure extends SubsystemBase {
             publishTelemetry(
                     true,
                     result.isAligned(),
-                    canFire,
+                    shooterShouldFire,
                     result.rotationCommand(),
                     result.rotationErrorRad(),
                     limitedTranslation.getNorm());
+            telemetry.publishTimedShotState(new TimedShotSnapshot(
+                    timedFireDecision.timedAutoArmCandidate(),
+                    armedDuringInactiveThisHold.get(),
+                    timedReleaseStartedThisHold.get(),
+                    matchTimingService.timingKnown(),
+                    matchTimingService.zoneActive(),
+                    matchTimingService.zoneRemainingSec(),
+                    timedFireDecision.launchLeadSec(),
+                    timedFireDecision.allowFeed(),
+                    timedFireDecision.reasonCode(),
+                    shotIsFeedMode));
 
         }, this, swerve).finallyDo(() -> {
             shooter.stop();
@@ -435,13 +571,19 @@ public class Superstructure extends SubsystemBase {
             intake.setShooting(false);
             intake.setAgitating(false);
             shooterReadyLatched.set(false);
+            armedDuringInactiveThisHold.set(false);
+            timedReleaseStartedThisHold.set(false);
             resetAimSetpointDerivatives();
             telemetry.publishDriveAutoAim(false, 0.0, 0.0);
+            resetTimedShotState();
             swerve.setChassisSpeeds(new ChassisSpeeds());
         }).beforeStarting(() -> {
             shooterReadyLatched.set(false);
+            armedDuringInactiveThisHold.set(matchTimingService.timingKnown() && !matchTimingService.zoneActive());
+            timedReleaseStartedThisHold.set(false);
             resetAimSetpointDerivatives();
             telemetry.publishDriveAutoAim(false, 0.0, 0.0);
+            resetTimedShotState();
         })
                 .withName("Superstructure AimAndShoot");
     }
@@ -504,6 +646,24 @@ public class Superstructure extends SubsystemBase {
 
     public Hopper getHopper() {
         return hopper;
+    }
+
+    private void publishPreloadState(boolean active, int phaseCode, int faultCode) {
+        telemetry.publishHopperPreloadState(new HopperPreloadSnapshot(active, phaseCode, faultCode));
+    }
+
+    private void resetTimedShotState() {
+        telemetry.publishTimedShotState(new TimedShotSnapshot(
+                false,
+                false,
+                false,
+                false,
+                false,
+                0.0,
+                0.0,
+                false,
+                TimedFirePolicy.REASON_NOT_REQUESTED,
+                false));
     }
 
     private void publishTelemetry(
