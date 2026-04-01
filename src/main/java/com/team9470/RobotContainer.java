@@ -7,10 +7,12 @@ package com.team9470;
 import choreo.auto.AutoChooser;
 import com.team9470.commands.Autos;
 import com.team9470.commands.WheelRadiusCharacterization;
+import com.team9470.telemetry.MatchTimingService;
 import com.team9470.telemetry.TelemetryManager;
 import com.team9470.telemetry.structs.YShotSnapshot;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -28,7 +30,9 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import com.team9470.Constants.OperatorConstants;
 import com.team9470.subsystems.vision.Vision;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.DoubleSupplier;
 import static edu.wpi.first.units.Units.*;
+import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 public class RobotContainer {
 
@@ -46,6 +50,7 @@ public class RobotContainer {
   private final Vision m_vision = Vision.getInstance();
   private final Autos m_autos = new Autos(m_swerve);
   private final AutoChooser m_autoChooser = new AutoChooser();
+  private final MatchTimingService matchTimingService = MatchTimingService.getInstance();
   private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
   // Controllers
@@ -55,12 +60,19 @@ public class RobotContainer {
   // Debug Y-shot dashboard tuning (only used by Y button command)
   private static final String kDebugYShotRpmKey = "Debug/YShot/RPM";
   private static final String kDebugYShotHoodDegKey = "Debug/YShot/HoodAngleDeg";
+  private static final String kActiveWindowEarlyRumbleLeadSecKey = "Debug/Rumble/ActiveLeadEarlySec";
+  private static final String kActiveWindowRumbleLeadSecKey = "Debug/Rumble/ActiveLeadSec";
   private static final double kDebugYShotDefaultRpm = 3000.0;
   private static final double kDebugYShotDefaultHoodDeg = 30.0;
   private static final double kShootTranslationDeadband = 0.10;
   private static final double kIntakeHeadingLockMinSpeedMps = 0.15;
   private static final double kIntakeHeadingLockKp = 3.5;
   private static final double kIntakeHeadingManualOverrideDeadband = 0.10;
+  private static final double kActiveWindowEarlyRumbleLeadSecDefault = 10.0;
+  private static final double kActiveWindowRumbleLeadSecDefault = 5.0;
+  private static final double kActiveWindowEarlyRumbleIntensity = 0.70;
+  private static final double kActiveWindowRumbleIntensity = 1.00;
+  private static final double kActiveWindowRumbleSec = 0.20;
   private final ShooterCharacterizationConfig shooterCharacterizationConfig = ShooterCharacterizationConfig.defaults();
 
   public RobotContainer() {
@@ -77,6 +89,8 @@ public class RobotContainer {
   private void initDebugYShotDashboard() {
     SmartDashboard.putNumber(kDebugYShotRpmKey, kDebugYShotDefaultRpm);
     SmartDashboard.putNumber(kDebugYShotHoodDegKey, kDebugYShotDefaultHoodDeg);
+    SmartDashboard.putNumber(kActiveWindowEarlyRumbleLeadSecKey, kActiveWindowEarlyRumbleLeadSecDefault);
+    SmartDashboard.putNumber(kActiveWindowRumbleLeadSecKey, kActiveWindowRumbleLeadSecDefault);
   }
 
   private final SwerveRequest.SwerveDriveBrake xLock = new SwerveRequest.SwerveDriveBrake();
@@ -105,6 +119,36 @@ public class RobotContainer {
 
   private double getShootTranslationSpeed(double rawAxisInput) {
     return -MathUtil.applyDeadband(rawAxisInput, kShootTranslationDeadband) * MaxSpeed;
+  }
+
+  private double getActiveWindowEarlyRumbleLeadSec() {
+    return Math.max(0.0,
+        SmartDashboard.getNumber(kActiveWindowEarlyRumbleLeadSecKey, kActiveWindowEarlyRumbleLeadSecDefault));
+  }
+
+  private double getActiveWindowRumbleLeadSec() {
+    return Math.max(0.0,
+        SmartDashboard.getNumber(kActiveWindowRumbleLeadSecKey, kActiveWindowRumbleLeadSecDefault));
+  }
+
+  private void setDriverRumble(double intensity) {
+    m_driverController.getHID().setRumble(RumbleType.kLeftRumble, intensity);
+    m_driverController.getHID().setRumble(RumbleType.kRightRumble, intensity);
+  }
+
+  private Command driverRumblePulseCommand(double intensity, double durationSec) {
+    return Commands.startEnd(
+        () -> setDriverRumble(intensity),
+        () -> setDriverRumble(0.0))
+        .withTimeout(durationSec)
+        .ignoringDisable(true);
+  }
+
+  private Trigger inactiveLeadWarningTrigger(DoubleSupplier leadSecSupplier) {
+    return new Trigger(() -> matchTimingService.timingKnown()
+        && !matchTimingService.zoneActive()
+        && matchTimingService.zoneRemainingSec() > 0.0
+        && matchTimingService.zoneRemainingSec() <= leadSecSupplier.getAsDouble());
   }
 
   private void configureBindings() {
@@ -233,6 +277,14 @@ public class RobotContainer {
     m_driverController.leftStick().onTrue(
         Commands.runOnce(() -> m_superstructure.getShooter().stopCharacterization(), m_superstructure.getShooter())
             .withName("Shooter Characterization Stop"));
+
+    inactiveLeadWarningTrigger(this::getActiveWindowEarlyRumbleLeadSec)
+        .onTrue(driverRumblePulseCommand(kActiveWindowEarlyRumbleIntensity, kActiveWindowRumbleSec)
+            .withName("Driver Rumble Active Window Lead 10s"));
+
+    inactiveLeadWarningTrigger(this::getActiveWindowRumbleLeadSec)
+        .onTrue(driverRumblePulseCommand(kActiveWindowRumbleIntensity, kActiveWindowRumbleSec)
+            .withName("Driver Rumble Active Window Lead"));
 
     // ==================== DEFAULT COMMANDS ====================
     m_swerve.setDefaultCommand(
