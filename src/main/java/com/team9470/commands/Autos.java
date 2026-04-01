@@ -24,6 +24,20 @@ public class Autos {
     return routine;
   }
 
+  public AutoRoutine speed() {
+    AutoRoutine routine = m_autoFactory.newRoutine("speed");
+    AutoTrajectory speed = routine.trajectory("speed");
+
+    routine.active().onTrue(
+        speed.resetOdometry()
+            .andThen(speed.cmd())
+            .andThen(Superstructure.getInstance().aimAndShootCommand()));
+
+    speed.atTime("IntakeDown")
+        .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
+    return routine;
+  }
+
   public AutoRoutine rightTrench() {
     AutoRoutine routine = m_autoFactory.newRoutine("rightTrench");
     AutoTrajectory rightTrench = routine.trajectory("rightTrenchCycle1Prototype");
