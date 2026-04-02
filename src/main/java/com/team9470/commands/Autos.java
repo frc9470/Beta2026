@@ -27,11 +27,16 @@ public class Autos {
   public AutoRoutine speed() {
     AutoRoutine routine = m_autoFactory.newRoutine("speed");
     AutoTrajectory speed = routine.trajectory("speed");
+    AutoTrajectory speed2 = routine.trajectory("speed2");
+    AutoTrajectory goToCenter = routine.trajectory("goToCenter");
 
     routine.active().onTrue(
         speed.resetOdometry()
             .andThen(speed.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand()));
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
+            .andThen(speed2.cmd())
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
+            .andThen(goToCenter.cmd()));
 
     speed.atTime("IntakeDown")
         .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
