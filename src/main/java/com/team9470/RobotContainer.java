@@ -13,6 +13,7 @@ import com.team9470.telemetry.structs.YShotSnapshot;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -144,6 +145,14 @@ public class RobotContainer {
         .ignoringDisable(true);
   }
 
+  private Trigger testModeTrigger(Trigger trigger) {
+    return new Trigger(DriverStation::isTestEnabled).and(trigger);
+  }
+
+  private Trigger nonTestModeTrigger(Trigger trigger) {
+    return new Trigger(() -> !DriverStation.isTestEnabled()).and(trigger);
+  }
+
   private Trigger inactiveLeadWarningTrigger(DoubleSupplier leadSecSupplier) {
     return new Trigger(() -> matchTimingService.timingKnown()
         && !matchTimingService.zoneActive()
@@ -253,19 +262,21 @@ public class RobotContainer {
                   false));
             }));
 
-    // D-pad Up: Stage a note at the top beam break without entering the shooter
-    m_driverController.povUp().onTrue(m_superstructure.stagePreloadCommand());
+    // D-pad Up: Stage a note normally, or run the full shooter characterization in Test mode.
+    nonTestModeTrigger(m_driverController.povUp()).onTrue(m_superstructure.stagePreloadCommand());
+    testModeTrigger(m_driverController.povUp()).onTrue(
+        createFullShooterCharacterizationCommand("Shooter Full Characterization"));
 
-    // D-pad Left/Down/Right: Shooter characterization debug shortcuts
-    m_driverController.povLeft().onTrue(
+    // D-pad Left/Down/Right: Individual shooter characterization shortcuts in Test mode.
+    testModeTrigger(m_driverController.povLeft()).onTrue(
         createShooterCharacterizationCommand(
             ShooterCharacterizationMode.VELOCITY_HOLD_SWEEP,
             "Shooter Velocity Hold Sweep"));
-    m_driverController.povDown().onTrue(
+    testModeTrigger(m_driverController.povDown()).onTrue(
         createShooterCharacterizationCommand(
             ShooterCharacterizationMode.CLOSED_LOOP_STEP_SWEEP,
             "Shooter Closed-Loop Step Sweep"));
-    m_driverController.povRight().onTrue(
+    testModeTrigger(m_driverController.povRight()).onTrue(
         createShooterCharacterizationCommand(
             ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP,
             "Shooter Open-Loop Voltage Sweep"));
@@ -273,8 +284,8 @@ public class RobotContainer {
     // Right Stick (press): Low-priority manual re-home for intake + hood
     m_driverController.rightStick().onTrue(m_superstructure.homeIntakeAndHoodCommand());
 
-    // Left Stick (press): Stop shooter characterization
-    m_driverController.leftStick().onTrue(
+    // Left Stick (press): Stop shooter characterization in Test mode.
+    testModeTrigger(m_driverController.leftStick()).onTrue(
         Commands.runOnce(() -> m_superstructure.getShooter().stopCharacterization(), m_superstructure.getShooter())
             .withName("Shooter Characterization Stop"));
 
@@ -338,6 +349,28 @@ public class RobotContainer {
           m_superstructure.getIntake().setShooting(false);
           m_superstructure.getIntake().setAgitating(false);
         })
+        .withName(name);
+  }
+
+  private Command createFullShooterCharacterizationCommand(String name) {
+    Command velocitySweep = createShooterCharacterizationCommand(
+        ShooterCharacterizationMode.VELOCITY_HOLD_SWEEP,
+        "Shooter Velocity Hold Sweep");
+    Command openLoopSweep = createShooterCharacterizationCommand(
+        ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP,
+        "Shooter Open-Loop Voltage Sweep");
+    Command stepSweep = createShooterCharacterizationCommand(
+        ShooterCharacterizationMode.CLOSED_LOOP_STEP_SWEEP,
+        "Shooter Closed-Loop Step Sweep");
+
+    return Commands.sequence(
+        velocitySweep,
+        Commands.waitSeconds(0.5),
+        Commands.either(openLoopSweep, Commands.none(),
+            () -> !m_superstructure.getShooter().getCharacterizationStatus().aborted()),
+        Commands.waitSeconds(0.5),
+        Commands.either(stepSweep, Commands.none(),
+            () -> !m_superstructure.getShooter().getCharacterizationStatus().aborted()))
         .withName(name);
   }
 }

@@ -130,6 +130,10 @@ public final class TelemetryManager {
             .getStructTopic("State", HopperSnapshot.struct).publish();
     private final StructPublisher<HopperPreloadSnapshot> hopperPreloadPublisher = hopperTable
             .getStructTopic("Preload", HopperPreloadSnapshot.struct).publish();
+    private final BooleanPublisher hopperTopBeamBreakRawBlockedPublisher = hopperTable
+            .getBooleanTopic("TopBeamBreakRawBlocked").publish();
+    private final BooleanPublisher hopperTopBeamBreakBlockedPublisher = hopperTable
+            .getBooleanTopic("TopBeamBreakBlocked").publish();
     private final NetworkTable hopperFeederTable = hopperTable.getSubTable("Feeder");
     private final DoublePublisher hopperFeederCommandedVoltsPublisher = TelemetryUtil.publishDouble(
             hopperFeederTable, "CommandedVolts", "V");
@@ -325,6 +329,8 @@ public final class TelemetryManager {
 
     public void publishHopperState(HopperSnapshot snapshot) {
         hopperStatePublisher.set(snapshot);
+        hopperTopBeamBreakRawBlockedPublisher.set(snapshot.topBeamBreakRawBlocked());
+        hopperTopBeamBreakBlockedPublisher.set(snapshot.topBeamBreakBlocked());
     }
 
     public void publishHopperPreloadState(HopperPreloadSnapshot snapshot) {
