@@ -20,7 +20,7 @@ public class IntakeConstants {
     public static final Angle kRetractAngle = Degrees.of(110.0); // Up/Stowed
     public static final double kRollerVoltage = 9.6;
     public static final double kAgitateFrequencyHz = 1.0;
-    public static final double kShootAgitationDelaySec = 0.5;
+    public static final double kShootAgitationDelaySec = 1;
 
     // Simulation
     public static final double kIntakeLength = 0.3; // meters

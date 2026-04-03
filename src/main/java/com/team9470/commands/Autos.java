@@ -77,7 +77,7 @@ public class Autos {
 
   public AutoRoutine leftTrenchPrototype() {
     AutoRoutine routine = m_autoFactory.newRoutine("leftTrenchPrototype");
-    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1");
+    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1Prototype");
     AutoTrajectory leftTrench2 = routine.trajectory("leftTrenchCycle2Prototype");
     AutoTrajectory leftTrench3 = routine.trajectory("leftTrenchToCenter");
 
