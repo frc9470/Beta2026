@@ -64,9 +64,6 @@ public final class TelemetryManager {
             .getDoubleArrayTopic("Modules/DriveStatorCurrentAmps").publish();
     private final StructPublisher<DriveStatusSnapshot> driveStatusPublisher = driveTable
             .getStructTopic("Status", DriveStatusSnapshot.struct).publish();
-    private final StructPublisher<Pose2d> driveReefPosePublisher = driveTable.getStructTopic("ReefPose", Pose2d.struct)
-            .publish();
-    private final BooleanPublisher driveReefPoseValidPublisher = driveTable.getBooleanTopic("ReefPoseValid").publish();
     private final NetworkTable driveAutoTable = driveTable.getSubTable("Auto");
     private final BooleanPublisher driveAutoActivePublisher = driveAutoTable.getBooleanTopic("Active").publish();
     private final DoublePublisher driveAutoLastSampleTimestampPublisher = TelemetryUtil.publishDouble(
@@ -97,6 +94,15 @@ public final class TelemetryManager {
     private final NetworkTable intakeTable = telemetryTable.getSubTable("Intake");
     private final StructPublisher<IntakeSnapshot> intakeStatePublisher = intakeTable
             .getStructTopic("State", IntakeSnapshot.struct).publish();
+    private final NetworkTable intakePivotTable = intakeTable.getSubTable("Pivot");
+    private final DoublePublisher intakePivotStatorCurrentPublisher = TelemetryUtil.publishDouble(
+            intakePivotTable, "StatorCurrentAmps", "A");
+    private final NetworkTable intakeLeftRollerTable = intakeTable.getSubTable("LeftRoller");
+    private final DoublePublisher intakeLeftRollerStatorCurrentPublisher = TelemetryUtil.publishDouble(
+            intakeLeftRollerTable, "StatorCurrentAmps", "A");
+    private final NetworkTable intakeRightRollerTable = intakeTable.getSubTable("RightRoller");
+    private final DoublePublisher intakeRightRollerStatorCurrentPublisher = TelemetryUtil.publishDouble(
+            intakeRightRollerTable, "StatorCurrentAmps", "A");
 
     private final NetworkTable shooterTable = telemetryTable.getSubTable("Shooter");
     private final StructPublisher<ShooterSnapshot> shooterStatePublisher = shooterTable
@@ -250,15 +256,6 @@ public final class TelemetryManager {
         driveStatusPublisher.set(snapshot);
     }
 
-    public void publishDriveReefPose(Pose2d reefPose) {
-        if (reefPose == null) {
-            driveReefPoseValidPublisher.set(false);
-            return;
-        }
-        driveReefPosePublisher.set(reefPose);
-        driveReefPoseValidPublisher.set(true);
-    }
-
     public void publishDriveAutoPathActive(boolean active) {
         driveAutoActivePublisher.set(active);
     }
@@ -292,6 +289,9 @@ public final class TelemetryManager {
 
     public void publishIntakeState(IntakeSnapshot snapshot) {
         intakeStatePublisher.set(snapshot);
+        intakePivotStatorCurrentPublisher.set(snapshot.pivotStatorCurrentAmps());
+        intakeLeftRollerStatorCurrentPublisher.set(snapshot.leftRollerStatorCurrentAmps());
+        intakeRightRollerStatorCurrentPublisher.set(snapshot.rightRollerStatorCurrentAmps());
     }
 
     public void publishShooterState(ShooterSnapshot snapshot) {

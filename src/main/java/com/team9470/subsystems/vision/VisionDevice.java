@@ -6,12 +6,10 @@ import com.team9470.FieldConstants;
 import com.team9470.subsystems.swerve.Swerve;
 import com.team9470.telemetry.TelemetryManager;
 import com.team9470.telemetry.structs.VisionCameraSnapshot;
-import com.team9470.util.Util;
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.Nat;
 import edu.wpi.first.math.Pair;
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.wpilibj.Timer;
@@ -95,12 +93,6 @@ public class VisionDevice {
 
             swerve.addVisionMeasurement(robotPose.toPose2d(), timestamp,
                     new Matrix<>(Nat.N3(), Nat.N1(), new double[] { xyStdDev, xyStdDev, xyStdDev }));
-
-            // Calculate and log rotation
-            // double rotationDegrees = calculateRotation(pose, Swerve.isRedAlliance());
-
-            // logRotation(rotationDegrees);
-
         }
     }
 
@@ -168,32 +160,6 @@ public class VisionDevice {
                 Swerve.getInstance().getPose());
     }
 
-    private double calculateRotation(Pose2d robotPose, boolean isRedAlliance) {
-        double rotationDegrees = robotPose
-                .getRotation()
-                .getDegrees()
-                + 180.0;
-
-        if (!isRedAlliance) {
-            return Util.boundAngleNeg180to180Degrees(rotationDegrees);
-        } else {
-            return Util.boundAngle0to360Degrees(rotationDegrees);
-        }
-    }
-
-    private static final Map<Integer, Pose2d> tagPoses2d = new HashMap<>();
-
-    static {
-        for (int i = 1; i <= FieldConstants.aprilTagCount; i++) {
-            tagPoses2d.put(
-                    i,
-                    FieldConstants.defaultAprilTagType.getLayout()
-                            .getTagPose(i)
-                            .map(Pose3d::toPose2d)
-                            .orElse(new Pose2d()));
-        }
-    }
-
     /**
      * Get the Photon Camera object
      * 
@@ -215,9 +181,4 @@ public class VisionDevice {
     public boolean isConnected() {
         return photonCamera.isConnected();
     }
-
-    public record TxTyObservation(
-            int tagId, int camera, double tx, double ty, double distance, double timestamp) {
-    }
-
 }

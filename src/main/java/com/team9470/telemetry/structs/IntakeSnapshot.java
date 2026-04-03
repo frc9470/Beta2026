@@ -15,8 +15,11 @@ public record IntakeSnapshot(
         double errorAngleRad,
         double pivotVelocityRadPerSec,
         double pivotSupplyCurrentAmps,
+        double pivotStatorCurrentAmps,
         double pivotAppliedVolts,
         double rollerAppliedVolts,
-        double rollerSupplyCurrentAmps) implements StructSerializable {
+        double rollerSupplyCurrentAmps,
+        double leftRollerStatorCurrentAmps,
+        double rightRollerStatorCurrentAmps) implements StructSerializable {
     public static final Struct<IntakeSnapshot> struct = StructGenerator.genRecord(IntakeSnapshot.class);
 }

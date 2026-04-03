@@ -47,7 +47,8 @@ public class Hopper extends SubsystemBase {
     private final DigitalInput topBeamBreak;
 
     // Control
-    private final VoltageOut voltageRequest = new VoltageOut(0);
+    private final VoltageOut hopperVoltageRequest = new VoltageOut(0).withEnableFOC(true);
+    private final VoltageOut feederVoltageRequest = new VoltageOut(0).withEnableFOC(false);
     private double commandedHopperVolts = 0.0;
     private double commandedFeederVolts = 0.0;
     private boolean topBeamBreakRawBlocked;
@@ -129,8 +130,8 @@ public class Hopper extends SubsystemBase {
                 feederRightAppliedVolts);
         updateTopBeamBreakState();
 
-        hopperMotor.setControl(voltageRequest.withOutput(commandedHopperVolts));
-        feederLeftMotor.setControl(voltageRequest.withOutput(commandedFeederVolts));
+        hopperMotor.setControl(hopperVoltageRequest.withOutput(commandedHopperVolts));
+        feederLeftMotor.setControl(feederVoltageRequest.withOutput(commandedFeederVolts));
 
         telemetry.publishHopperState(new HopperSnapshot(
                 isRunning(),

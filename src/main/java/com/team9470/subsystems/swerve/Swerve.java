@@ -20,13 +20,11 @@ import com.team9470.Telemetry;
 import com.team9470.TunerConstants.TunerSwerveDrivetrain;
 import com.team9470.telemetry.TelemetryManager;
 import com.team9470.subsystems.vision.VisionPoseAcceptor;
-import com.team9470.util.AllianceFlipUtil;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -34,7 +32,6 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Notifier;
@@ -46,9 +43,6 @@ import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
 import java.util.function.Supplier;
 
 import static edu.wpi.first.units.Units.*;
@@ -148,14 +142,11 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
                     },
                     null,
                     this));
-    public Pose2d curReefPos = null;
-    public int curReefPosId = -1;
 
     private double m_lastSimTime;
     private double lastAutoPathSampleTimestampSec = Double.NEGATIVE_INFINITY;
     /* Keep track if we've ever applied the operator perspective before or not */
     private boolean m_hasAppliedOperatorPerspective = false;
-    private final HashMap<Integer, TxTyPoseRecord> txTyPoses = new HashMap<>();
 
     // private RobotConfig config;
 
@@ -204,12 +195,6 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
         // e.printStackTrace();
         // }
         // configAutoBuilder();
-        // FieldConstants removed - logic commented out
-        // for (int i = 1; i <= FieldConstants.aprilTagCount; i++) {
-        // txTyPoses.put(i, new TxTyPoseRecord(new Pose2d(), Double.POSITIVE_INFINITY,
-        // -1.0));
-        // }
-
         initSmartDashboardGains();
     }
 
@@ -442,9 +427,6 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
                 m_hasAppliedOperatorPerspective = true;
             });
         }
-        telemetry.publishDriveReefPose(curReefPos);
-
-        // FieldConstants removed - logic commented out
 
         updateSmartDashboardGains();
     }
@@ -583,76 +565,4 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
         }
     }
 
-    public void addTxTyPoseRecord(int id, Pose2d pose, double distance, double timestamp) {
-        txTyPoses.put(id, new TxTyPoseRecord(pose, distance, timestamp));
-    }
-
-    /**
-     * Get estimated pose using txty data given tagId on reef and aligned pose on
-     * reef. Used for algae
-     * intaking and coral scoring.
-     */
-
-    // private static final LoggedTunableNumber minDistanceTagPoseBlend =
-    // new LoggedTunableNumber("RobotState/MinDistanceTagPoseBlend",
-    // Units.inchesToMeters(24.0));
-    // private static final LoggedTunableNumber maxDistanceTagPoseBlend =
-    // new LoggedTunableNumber("RobotState/MaxDistanceTagPoseBlend",
-    // Units.inchesToMeters(36.0));
-
-    public static final double minDistanceTagPoseBlend = Units.inchesToMeters(24.0);
-    public static final double maxDistanceTagPoseBlend = Units.inchesToMeters(36.0);
-
-    @Deprecated
-    /**
-     * chat lets not do 6328 code pretty please
-     */
-    public Pose2d getReefPose(int face, Pose2d finalPose) {
-        final boolean isRed = AllianceFlipUtil.shouldFlip();
-        var tagPose = getTxTyPose(
-                switch (face) {
-                    case 1 -> isRed ? 6 : 19;
-                    case 2 -> isRed ? 11 : 20;
-                    case 3 -> isRed ? 10 : 21;
-                    case 4 -> isRed ? 9 : 22;
-                    case 5 -> isRed ? 8 : 17;
-                    // 0
-                    default -> isRed ? 7 : 18;
-                });
-        // Use estimated pose if tag pose is not present
-        if (tagPose.isEmpty())
-            return getPose();
-        // Use distance from estimated pose to final pose to get t value
-        final double t = MathUtil.clamp(
-                (getPose().getTranslation().getDistance(finalPose.getTranslation())
-                        - minDistanceTagPoseBlend)
-                        / (maxDistanceTagPoseBlend - minDistanceTagPoseBlend),
-                0.0,
-                1.0);
-        return getPose().interpolate(tagPose.get(), 1.0 - t);
-    }
-
-    public Optional<Pose2d> getTxTyPose(int tagId) {
-        if (!txTyPoses.containsKey(tagId)) {
-            DriverStation.reportError("No tag with id: " + tagId, true);
-            return Optional.empty();
-        }
-        var data = txTyPoses.get(tagId);
-        // Check if stale
-        if (Timer.getTimestamp() - data.timestamp() >= 0.5) {
-            return Optional.empty();
-        }
-        // Get odometry based pose at timestamp
-        var sample = samplePoseAt(data.timestamp());
-        // Latency compensate
-        // TODO: add odometry back in as separate pose
-        return sample.map(pose2d -> data.pose().plus(new Transform2d(pose2d, getState().Pose)));
-    }
-
-    public Map<Integer, TxTyPoseRecord> getTxTyPoses() {
-        return txTyPoses;
-    }
-
-    public record TxTyPoseRecord(Pose2d pose, double distance, double timestamp) {
-    }
 }

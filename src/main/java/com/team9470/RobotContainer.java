@@ -356,18 +356,12 @@ public class RobotContainer {
     Command velocitySweep = createShooterCharacterizationCommand(
         ShooterCharacterizationMode.VELOCITY_HOLD_SWEEP,
         "Shooter Velocity Hold Sweep");
-    Command openLoopSweep = createShooterCharacterizationCommand(
-        ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP,
-        "Shooter Open-Loop Voltage Sweep");
     Command stepSweep = createShooterCharacterizationCommand(
         ShooterCharacterizationMode.CLOSED_LOOP_STEP_SWEEP,
         "Shooter Closed-Loop Step Sweep");
 
     return Commands.sequence(
         velocitySweep,
-        Commands.waitSeconds(0.5),
-        Commands.either(openLoopSweep, Commands.none(),
-            () -> !m_superstructure.getShooter().getCharacterizationStatus().aborted()),
         Commands.waitSeconds(0.5),
         Commands.either(stepSweep, Commands.none(),
             () -> !m_superstructure.getShooter().getCharacterizationStatus().aborted()))

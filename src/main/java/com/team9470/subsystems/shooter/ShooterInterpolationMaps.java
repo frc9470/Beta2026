@@ -37,17 +37,13 @@ public final class ShooterInterpolationMaps {
 
     private static void loadFeedMap() {
         // Feed map starts from hub-like points and can be tuned independently.
-        addFeedPoint(1.0, 15.0, 1850.0);
-        addFeedPoint(1.25, 18.0, 1750.0);
-        addFeedPoint(1.5, 17.0, 1800.0);
-        addFeedPoint(1.75, 17.0, 1900.0);
-        addFeedPoint(2.0, 20.0, 1950.0);
-        addFeedPoint(3.0, 31.0, 2070.0);
-        addFeedPoint(3.5, 33.0, 2190.0);
-        addFeedPoint(4.0, 34.0, 2300.0);
-        addFeedPoint(4.5, 34.0, 2530.0);
-        addFeedPoint(5.0, 37.0, 2800.0);
-        addFeedPoint(6.0, 39.0, 3000.0);
+        addFeedPoint(4.0, 30, 2300.0);
+        addFeedPoint(5.0, 32.0, 2300.0);
+        addFeedPoint(6.0, 35.0, 2550.0);
+        addFeedPoint(7.0, 35.0, 2800.0);
+        addFeedPoint(8.0, 40.0, 3000.0);
+        addFeedPoint(9.0, 45.0, 3200.0);
+
     }
 
     private static void loadAirTimeMap() {

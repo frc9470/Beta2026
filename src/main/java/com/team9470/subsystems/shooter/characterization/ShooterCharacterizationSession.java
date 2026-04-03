@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class ShooterCharacterizationSession {
-    private static final double kIdleHoldSec = 1.0;
+    private static final double kIdleHoldSec = 0.5;
 
     private final int runId;
     private final ShooterCharacterizationMode mode;
@@ -123,9 +123,6 @@ public final class ShooterCharacterizationSession {
                 double[] plateaus = config.rpmPlateaus();
                 for (double rpm : plateaus) {
                     segments.add(new Segment(rpm, 0.0, config.plateauDwellSec(), config.plateauDiscardSec(), true));
-                }
-                for (int i = plateaus.length - 2; i >= 0; i--) {
-                    segments.add(new Segment(plateaus[i], 0.0, config.plateauDwellSec(), config.plateauDiscardSec(), true));
                 }
             }
             case OPEN_LOOP_VOLTAGE_SWEEP -> {

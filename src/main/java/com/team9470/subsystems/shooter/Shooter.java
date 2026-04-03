@@ -53,7 +53,8 @@ public class Shooter extends SubsystemBase {
     private static final double kOverrevRampSeconds = 0.75;
     private static final double kNonZeroSpeedEpsilonRPS = 1e-4;
     private static final double kCharacterizationMinBatteryVolts = 9.5;
-    private static final double kCharacterizationMaxCurrentAmps = 160.0;
+    private static final double kCharacterizationMaxCurrentAmps = 240.0;
+    private static final double kCharacterizationCurrentDebounceSec = 0.15;
     private static final double kCharacterizationMaxFlywheelRpm = ShooterCharacterizationConfig.defaultMaxFlywheelRpm() + 250.0;
     private static final AtomicInteger kCharacterizationRunIds = new AtomicInteger(1);
 
@@ -96,9 +97,10 @@ public class Shooter extends SubsystemBase {
     };
 
     // Controls
-    private final VelocityVoltage flywheelRequest = new VelocityVoltage(0);
+    private final VelocityVoltage flywheelRequest = new VelocityVoltage(0).withEnableFOC(false);
     private final PositionVoltage hoodRequest = new PositionVoltage(0);
-    private final VoltageOut voltRequest = new VoltageOut(0);
+    private final VoltageOut flywheelVoltageRequest = new VoltageOut(0).withEnableFOC(false);
+    private final VoltageOut hoodVoltageRequest = new VoltageOut(0);
 
     // State
     private double targetSpeedRPS = 0.0;
@@ -111,6 +113,7 @@ public class Shooter extends SubsystemBase {
     private ShooterCharacterizationSession characterizationSession;
     private ShooterCharacterizationCsvLogger characterizationLogger;
     private ShooterCharacterizationStatus characterizationStatus = ShooterCharacterizationStatus.idle();
+    private double characterizationOverCurrentStartSec = Double.NaN;
     private double cachedHoodKP, cachedHoodKI, cachedHoodKD, cachedHoodKV, cachedHoodKG;
 
     // Simulation context
@@ -351,6 +354,7 @@ public class Shooter extends SubsystemBase {
                 mode,
                 config,
                 Timer.getFPGATimestamp());
+        characterizationOverCurrentStartSec = Double.NaN;
         characterizationStatus = characterizationSession.status();
         publishCharacterizationStatus();
         try {
@@ -367,6 +371,7 @@ public class Shooter extends SubsystemBase {
             characterizationSession.abort("Stopped");
             characterizationStatus = characterizationSession.status();
         }
+        characterizationOverCurrentStartSec = Double.NaN;
         characterizationSession = null;
         closeCharacterizationLogger();
         publishCharacterizationStatus();
@@ -459,9 +464,17 @@ public class Shooter extends SubsystemBase {
             } else if (batteryVolts < kCharacterizationMinBatteryVolts) {
                 characterizationSession.abort("Battery below characterization threshold");
             } else if (totalFlywheelSupplyCurrent > kCharacterizationMaxCurrentAmps) {
-                characterizationSession.abort("Flywheel current exceeded threshold");
+                if (!Double.isFinite(characterizationOverCurrentStartSec)) {
+                    characterizationOverCurrentStartSec = Timer.getFPGATimestamp();
+                } else if (Timer.getFPGATimestamp() - characterizationOverCurrentStartSec
+                        >= kCharacterizationCurrentDebounceSec) {
+                    characterizationSession.abort("Flywheel current exceeded threshold");
+                }
             } else if ((currentRPS * 60.0) > kCharacterizationMaxFlywheelRpm) {
+                characterizationOverCurrentStartSec = Double.NaN;
                 characterizationSession.abort("Flywheel RPM exceeded threshold");
+            } else {
+                characterizationOverCurrentStartSec = Double.NaN;
             }
 
             boolean atCurrentCharacterizationSetpoint = isAtCommandedSetpoint(
@@ -477,10 +490,10 @@ public class Shooter extends SubsystemBase {
 
         // === Flywheel control (always runs, independent of homing) ===
         if (characterizationOpenLoop) {
-            flywheel1.setControl(voltRequest.withOutput(commandedFlywheelVolts));
-            flywheel2.setControl(voltRequest.withOutput(commandedFlywheelVolts));
-            flywheel3.setControl(voltRequest.withOutput(commandedFlywheelVolts));
-            flywheel4.setControl(voltRequest.withOutput(commandedFlywheelVolts));
+            flywheel1.setControl(flywheelVoltageRequest.withOutput(commandedFlywheelVolts));
+            flywheel2.setControl(flywheelVoltageRequest.withOutput(commandedFlywheelVolts));
+            flywheel3.setControl(flywheelVoltageRequest.withOutput(commandedFlywheelVolts));
+            flywheel4.setControl(flywheelVoltageRequest.withOutput(commandedFlywheelVolts));
         } else {
             flywheel1.setControl(flywheelRequest.withVelocity(commandedFlywheelRps));
             flywheel2.setControl(flywheelRequest.withVelocity(commandedFlywheelRps));
@@ -491,13 +504,13 @@ public class Shooter extends SubsystemBase {
         // === Hood control (gated by homing) ===
         if (needsHoming) {
             // Drive hood toward min-angle hardstop
-            hoodMotor.setControl(voltRequest.withOutput(ShooterConstants.kHoodHomingVoltage));
+            hoodMotor.setControl(hoodVoltageRequest.withOutput(ShooterConstants.kHoodHomingVoltage));
 
             // Check for stall (hit hardstop): high current AND low velocity
             double current = hoodMotor.getStatorCurrent().getValueAsDouble();
             double velocity = Math.abs(hoodMotor.getVelocity().getValueAsDouble());
             if (current > ShooterConstants.kHoodStallCurrentThreshold && velocity < 0.5) {
-                hoodMotor.setControl(voltRequest.withOutput(0));
+                hoodMotor.setControl(hoodVoltageRequest.withOutput(0));
                 hoodMotor.setPosition(ShooterConstants.launchRadToMechanismRotations(
                         ShooterConstants.kHoodHomePosition.in(edu.wpi.first.units.Units.Radians)));
                 needsHoming = false;
@@ -560,6 +573,7 @@ public class Shooter extends SubsystemBase {
             tryAppendCharacterizationRow(characterizationSample.mode(), snapshot);
 
             if (!characterizationSample.active()) {
+                characterizationOverCurrentStartSec = Double.NaN;
                 characterizationSession = null;
                 closeCharacterizationLogger();
                 publishCharacterizationStatus();

@@ -47,8 +47,9 @@ public class Intake extends SubsystemBase {
     private final TalonFX rightRoller = TalonFXFactory.createDefaultTalon(Ports.INTAKE_ROLLER_RIGHT);
 
     // Controls
-    private final MotionMagicVoltage mmRequest = new MotionMagicVoltage(0).withSlot(0);
-    private final VoltageOut voltRequest = new VoltageOut(0);
+    private final MotionMagicVoltage mmRequest = new MotionMagicVoltage(0).withSlot(0).withEnableFOC(true);
+    private final VoltageOut pivotVoltageRequest = new VoltageOut(0).withEnableFOC(true);
+    private final VoltageOut rollerVoltageRequest = new VoltageOut(0).withEnableFOC(false);
 
     // State
     private boolean deployed = false;
@@ -171,8 +172,8 @@ public class Intake extends SubsystemBase {
     /** Reverse rollers while held (for clearing jams). */
     public Command getOuttakeCommand() {
         return this.startEnd(
-                () -> leftRoller.setControl(voltRequest.withOutput(-IntakeConstants.kRollerVoltage)),
-                () -> leftRoller.setControl(voltRequest.withOutput(0)))
+                () -> leftRoller.setControl(rollerVoltageRequest.withOutput(-IntakeConstants.kRollerVoltage)),
+                () -> leftRoller.setControl(rollerVoltageRequest.withOutput(0)))
                 .withName("Intake Outtake");
     }
 
@@ -244,8 +245,8 @@ public class Intake extends SubsystemBase {
     public void periodic() {
         if (needsHoming) {
             // Drive toward retract hardstop
-            pivot.setControl(voltRequest.withOutput(IntakeConstants.kHomingVoltage));
-            leftRoller.setControl(voltRequest.withOutput(0));
+            pivot.setControl(pivotVoltageRequest.withOutput(IntakeConstants.kHomingVoltage));
+            leftRoller.setControl(rollerVoltageRequest.withOutput(0));
 
             // Check for a sustained stall at the retract hardstop.
             double now = Timer.getFPGATimestamp();
@@ -259,7 +260,7 @@ public class Intake extends SubsystemBase {
                     homingStallStartTimestampSec = now;
                 }
                 if (now - homingStallStartTimestampSec >= IntakeConstants.kStallTimeThreshold) {
-                    pivot.setControl(voltRequest.withOutput(0));
+                    pivot.setControl(pivotVoltageRequest.withOutput(0));
                     pivot.setPosition(IntakeConstants.pivotAngleToMechanismRotations(IntakeConstants.kHomePosition));
                     homingStallStartTimestampSec = Double.NaN;
                     needsHoming = false;
@@ -279,10 +280,13 @@ public class Intake extends SubsystemBase {
                     0.0,
                     velocity * 2.0 * Math.PI,
                     supplyCurrent,
+                    statorCurrent,
                     IntakeConstants.kHomingVoltage,
                     0.0,
                     // TODO: Make it check from both rollers.
-                    leftRoller.getSupplyCurrent().getValueAsDouble()));
+                    leftRoller.getSupplyCurrent().getValueAsDouble(),
+                    leftRoller.getStatorCurrent().getValueAsDouble(),
+                    rightRoller.getStatorCurrent().getValueAsDouble()));
             return;
         }
 
@@ -311,7 +315,7 @@ public class Intake extends SubsystemBase {
 
         // Roller control
         double rollerVolts = (deployed || deployHigh || effectiveAgitating) ? IntakeConstants.kRollerVoltage : 0.0;
-        leftRoller.setControl(voltRequest.withOutput(rollerVolts));
+        leftRoller.setControl(rollerVoltageRequest.withOutput(rollerVolts));
 
         // --- Telemetry ---
         double currentPositionRot = pivot.getPosition().getValueAsDouble();
@@ -343,10 +347,13 @@ public class Intake extends SubsystemBase {
                 setpointRad - currentPositionRad,
                 pivot.getVelocity().getValueAsDouble() * 2.0 * Math.PI,
                 pivot.getSupplyCurrent().getValueAsDouble(),
+                pivot.getStatorCurrent().getValueAsDouble(),
                 pivot.getMotorVoltage().getValueAsDouble(),
                 rollerVolts,
                 // TODO: Make it publish both left and right roller.
-                leftRoller.getSupplyCurrent().getValueAsDouble()));
+                leftRoller.getSupplyCurrent().getValueAsDouble(),
+                leftRoller.getStatorCurrent().getValueAsDouble(),
+                rightRoller.getStatorCurrent().getValueAsDouble()));
 
         // Update visualization (works in both real and sim)
         if (Robot.isSimulation()) {

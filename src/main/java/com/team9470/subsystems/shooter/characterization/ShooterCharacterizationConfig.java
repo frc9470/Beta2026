@@ -13,11 +13,11 @@ public record ShooterCharacterizationConfig(
         double[] shotTargetsRpm,
         double stepTimeoutSec,
         double samplePeriodSec) {
-    private static final double kPlateauStepRpm = 250.0;
-    private static final double kVelocityPlateauDwellSec = 3.0;
-    private static final double kVelocityPlateauDiscardSec = 1.5;
-    private static final double kVoltageStepHoldSec = 1.25;
-    private static final double kStepTimeoutSec = 3.0;
+    private static final double kPlateauStepRpm = 500.0;
+    private static final double kVelocityPlateauDwellSec = 2.0;
+    private static final double kVelocityPlateauDiscardSec = 0.75;
+    private static final double kVoltageStepHoldSec = 0.75;
+    private static final double kStepTimeoutSec = 2.0;
     private static final double kSamplePeriodSec = 0.02;
 
     public ShooterCharacterizationConfig {
@@ -48,14 +48,14 @@ public record ShooterCharacterizationConfig(
     }
 
     public static ShooterCharacterizationConfig defaults() {
-        double maxRpm = defaultMaxFlywheelRpm();
+        double maxRpm = Math.min(4000.0, defaultMaxFlywheelRpm());
         return new ShooterCharacterizationConfig(
                 rpmRange(0.0, maxRpm, kPlateauStepRpm),
                 kVelocityPlateauDwellSec,
                 kVelocityPlateauDiscardSec,
-                new double[] {2.0, 4.0, 6.0, 8.0, 10.0},
+                new double[] {3.0, 6.0, 9.0},
                 kVoltageStepHoldSec,
-                rpmRange(0.0, Math.min(3000.0, maxRpm), kPlateauStepRpm),
+                filterByMaxRpm(new double[] {0.0, 1000.0, 2000.0, 3000.0}, maxRpm),
                 defaultShotTargets(maxRpm),
                 kStepTimeoutSec,
                 kSamplePeriodSec);
@@ -67,7 +67,13 @@ public record ShooterCharacterizationConfig(
     }
 
     private static double[] defaultShotTargets(double maxRpm) {
-        return Arrays.stream(new double[] {2000.0, 3000.0, 4000.0})
+        return Arrays.stream(new double[] {2500.0, 3500.0, 4000.0})
+                .filter(rpm -> rpm <= maxRpm)
+                .toArray();
+    }
+
+    private static double[] filterByMaxRpm(double[] values, double maxRpm) {
+        return Arrays.stream(values)
                 .filter(rpm -> rpm <= maxRpm)
                 .toArray();
     }

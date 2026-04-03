@@ -99,7 +99,7 @@ public class TunerConstants {
         // SDS MK5n R1 drive ratio and MK5n steering ratio.
         private static final double kDriveGearRatio = 7.03;
         private static final double kSteerGearRatio = 26.09;
-        private static final Distance kWheelRadius = Inches.of(1.8658);
+        private static final Distance kWheelRadius = Inches.of(1.95);
 
         private static final boolean kInvertLeftSide = false;
         private static final boolean kInvertRightSide = true;

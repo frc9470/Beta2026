@@ -14,7 +14,7 @@ public class IntakeConstants {
     public static final double kPivotGearRatio = 20.0;
 
     // Setpoints
-    public static final Angle kDeployAngle = Degrees.of(6.0); // Down/Floor
+    public static final Angle kDeployAngle = Degrees.of(4.0); // Down/Floor
     public static final Angle kDeployHighAngle = Degrees.of(-10.0); // Deploy +10 deg
     public static final Angle kAgitateMiddleAngle = Degrees.of(80.0); // Slightly higher mid position for shot agitation
     public static final Angle kRetractAngle = Degrees.of(110.0); // Up/Stowed
@@ -28,7 +28,7 @@ public class IntakeConstants {
 
     // Current Limits
     public static final double kPivotSupplyCurrentLimit = 25.0;
-    public static final double kRollerSupplyCurrentLimit = 30.0;
+    public static final double kRollerStatorCurrentLimit = 30.0;
 
     // ==================== HOMING ====================
     // Intake homes to hardstop at retract position (90 degrees up)
@@ -36,7 +36,7 @@ public class IntakeConstants {
     public static final double kStallCurrentThreshold = 20.0; // Amps
     public static final double kStallTimeThreshold = 0.1; // Seconds at stall
     public static final double kStallVelocityThreshold = 0.05; // Mechanism rot/s (~18 deg/s)
-    public static final Angle kHomePosition = Degrees.of(134.0); // Angle at hardstop
+    public static final Angle kHomePosition = Degrees.of(136.0); // Angle at hardstop
 
     // Motor Configs
     public static final TalonFXConfiguration kPivotConfig = new TalonFXConfiguration();
@@ -76,20 +76,23 @@ public class IntakeConstants {
         kPivotConfig.MotionMagic.MotionMagicJerk = 0;
         kPivotConfig.CurrentLimits
                 .withSupplyCurrentLimit(kPivotSupplyCurrentLimit)
-                .withSupplyCurrentLimitEnable(true);
+                .withSupplyCurrentLimitEnable(true)
+                .withStatorCurrentLimitEnable(false);
 
         // Roller Config
         kLeftRollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
         kLeftRollerConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
         kLeftRollerConfig.CurrentLimits
-                .withSupplyCurrentLimit(kRollerSupplyCurrentLimit)
-                .withSupplyCurrentLimitEnable(true);
+                .withSupplyCurrentLimitEnable(false)
+                .withStatorCurrentLimit(kRollerStatorCurrentLimit)
+                .withStatorCurrentLimitEnable(true);
 
         kRightRollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
 
         kRightRollerConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
         kRightRollerConfig.CurrentLimits
-                .withSupplyCurrentLimit(kRollerSupplyCurrentLimit)
-                .withSupplyCurrentLimitEnable(true);
+                .withSupplyCurrentLimitEnable(false)
+                .withStatorCurrentLimit(kRollerStatorCurrentLimit)
+                .withStatorCurrentLimitEnable(true);
     }
 }

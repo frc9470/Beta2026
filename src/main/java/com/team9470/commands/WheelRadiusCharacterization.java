@@ -32,7 +32,7 @@ public class WheelRadiusCharacterization extends Command {
      * Configured wheel radius used by the drive encoders (must match
      * TunerConstants).
      */
-    private static final double CONFIGURED_WHEEL_RADIUS = Units.inchesToMeters(1.8658);
+    private static final double CONFIGURED_WHEEL_RADIUS = Units.inchesToMeters(1.95);
 
     private final Swerve swerve;
 

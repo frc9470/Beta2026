@@ -36,7 +36,8 @@ class SnapshotStructsTest {
     @Test
     void intakeRoundTrip() {
         assertRoundTrip(IntakeSnapshot.struct,
-                new IntakeSnapshot(false, true, false, 2, 1.0, 1.1, 1.05, 0.05, 2.0, 12.0, 4.5, 6.0, 8.0));
+                new IntakeSnapshot(false, true, false, 2, 1.0, 1.1, 1.05, 0.05, 2.0, 12.0, 13.0, 4.5, 6.0, 8.0,
+                        9.0, 10.0));
     }
 
     @Test
