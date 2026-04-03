@@ -262,12 +262,14 @@ public class RobotContainer {
                   false));
             }));
 
-    // D-pad Up: Stage a note normally, or run the full shooter characterization in Test mode.
+    // D-pad Up: Stage a note normally, or run the full shooter characterization in
+    // Test mode.
     nonTestModeTrigger(m_driverController.povUp()).onTrue(m_superstructure.stagePreloadCommand());
     testModeTrigger(m_driverController.povUp()).onTrue(
         createFullShooterCharacterizationCommand("Shooter Full Characterization"));
 
-    // D-pad Left/Down/Right: Individual shooter characterization shortcuts in Test mode.
+    // D-pad Left/Down/Right: Individual shooter characterization shortcuts in Test
+    // mode.
     testModeTrigger(m_driverController.povLeft()).onTrue(
         createShooterCharacterizationCommand(
             ShooterCharacterizationMode.VELOCITY_HOLD_SWEEP,
@@ -313,12 +315,10 @@ public class RobotContainer {
   private void configureAutonomous() {
     m_autoChooser.addRoutine("Do Nothing", m_autos::doNothing);
     m_autoChooser.addRoutine("rightTrench", m_autos::rightTrench);
-    m_autoChooser.addRoutine("leftTrenchStable", m_autos::leftTrenchStable);
     m_autoChooser.addRoutine("leftTrenchPrototype", m_autos::leftTrenchPrototype);
     m_autoChooser.addRoutine("rightTrenchPrototype", m_autos::rightTrenchPrototype);
-    m_autoChooser.addRoutine("bumpLeftBlue", m_autos::bumpLeftBlue);
-    m_autoChooser.addRoutine("driveOverBumpTest", m_autos::driveOverBumpTest);
     m_autoChooser.addRoutine("shootPreloaded", m_autos::shootPreloaded);
+    m_autoChooser.addRoutine("speed", m_autos::speed);
     m_autoChooser.select("Do Nothing");
     SmartDashboard.putData("AutoChooser", m_autoChooser);
   }

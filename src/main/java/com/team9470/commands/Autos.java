@@ -33,13 +33,13 @@ public class Autos {
     routine.active().onTrue(
         speed.resetOdometry()
             .andThen(speed.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(2.5))
             .andThen(speed2.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(2.5))
             .andThen(goToCenter.cmd()));
 
-    speed.atTime("IntakeDown")
-        .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
+    // speed.atTime("IntakeDown")
+    //     .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
     return routine;
   }
 
@@ -52,7 +52,7 @@ public class Autos {
         rightTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(rightTrench.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.5))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(2.5))
             .andThen(rightTrench2.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand()));
     return routine;
@@ -67,9 +67,6 @@ public class Autos {
     routine.active().onTrue(
         rightTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            // .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
-            // .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) +
-            // Math.toRadians(15)))
             .andThen(rightTrench.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.5))
             .andThen(rightTrench2.cmd())
@@ -78,118 +75,26 @@ public class Autos {
     return routine;
   }
 
-  public AutoRoutine leftTrenchStable() {
-    AutoRoutine routine = m_autoFactory.newRoutine("leftTrenchStable");
-    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1Prototype");
-    AutoTrajectory leftTrench2 = routine.trajectory("leftTrenchCycle2Stable");
-
-    routine.active().onTrue(
-        leftTrench.resetOdometry()
-            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            // .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
-            // .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) +
-            // Math.toRadians(45)))
-            .andThen(leftTrench.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.5))
-            .andThen(leftTrench2.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand()));
-    return routine;
-  }
-
   public AutoRoutine leftTrenchPrototype() {
     AutoRoutine routine = m_autoFactory.newRoutine("leftTrenchPrototype");
-    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1Prototype");
+    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1");
     AutoTrajectory leftTrench2 = routine.trajectory("leftTrenchCycle2Prototype");
     AutoTrajectory leftTrench3 = routine.trajectory("leftTrenchToCenter");
 
     routine.active().onTrue(
         leftTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            // .andThen(Commands.waitUntil(() -> Superstructure.getInstance().getIntake()
-            // .getPivotAngle() <= IntakeConstants.kDeployAngle.in(Radians) +
-            // Math.toRadians(15)))
             .andThen(leftTrench.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4.25))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(2.5))
             .andThen(leftTrench2.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(4))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(2.5))
             .andThen(leftTrench3.cmd()));
-    return routine;
-  }
-
-  public AutoRoutine bumpRightBlue() {
-    AutoRoutine routine = m_autoFactory.newRoutine("bumpRightBlue");
-    AutoTrajectory bumpRightBlue = routine.trajectory("bumpRightBlue");
-
-    routine.active().onTrue(
-        bumpRightBlue.resetOdometry()
-            .andThen(bumpRightBlue.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(5)));
-
-    bumpRightBlue.atTime("IntakeDown")
-        .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
-    bumpRightBlue.atTime("IntakeUp")
-        .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(false)));
-    return routine;
-  }
-
-  public AutoRoutine bumpLeftBlue() {
-    AutoRoutine routine = m_autoFactory.newRoutine("bumpLeftBlue");
-    AutoTrajectory bumpLeftBlue = routine.trajectory("bumpLeftBlue");
-
-    routine.active().onTrue(
-        bumpLeftBlue.resetOdometry()
-            .andThen(bumpLeftBlue.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(5)));
-
-    bumpLeftBlue.atTime("IntakeDown")
-        .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
-    bumpLeftBlue.atTime("IntakeUp")
-        .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(false)));
-    return routine;
-  }
-
-  public AutoRoutine depotOutpostBlue() {
-    AutoRoutine routine = m_autoFactory.newRoutine("depotOutpostBlue");
-    AutoTrajectory depotOutpostBlue = routine.trajectory("depotOutpostBlue");
-
-    routine.active().onTrue(
-        depotOutpostBlue.resetOdometry()
-            .andThen(depotOutpostBlue.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand()));
-
-    depotOutpostBlue.atTime("IntakeDown")
-        .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
-    return routine;
-  }
-
-  public AutoRoutine driveOverBumpTest() {
-    AutoRoutine routine = m_autoFactory.newRoutine("driveOverBumpTest");
-    AutoTrajectory driveOverBumpTest = routine.trajectory("driveOverBumpTest");
-
-    routine.active().onTrue(
-        driveOverBumpTest.resetOdometry()
-            .andThen(driveOverBumpTest.cmd()));
     return routine;
   }
 
   public AutoRoutine shootPreloaded() {
     AutoRoutine routine = m_autoFactory.newRoutine("shootPreloaded");
     routine.active().onTrue(Superstructure.getInstance().aimAndShootCommand().withTimeout(5));
-    return routine;
-  }
-
-  public AutoRoutine outpostIntake() {
-    AutoRoutine routine = m_autoFactory.newRoutine("outpostIntake");
-    AutoTrajectory outpostIntake1 = routine.trajectory("outpostIntake1");
-    AutoTrajectory outpostIntake2 = routine.trajectory("outpostIntake2");
-
-    routine.active().onTrue(
-        outpostIntake1.resetOdometry()
-            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            .andThen(outpostIntake1.cmd())
-            .andThen(Commands.waitSeconds(3))
-            .andThen(outpostIntake2.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand()));
     return routine;
   }
 }
