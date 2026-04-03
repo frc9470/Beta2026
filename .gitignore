@@ -185,3 +185,12 @@ compile_commands.json
 
 # Eclipse generated file for annotation processors
 .factorypath
+
+# Local shooter characterization data and generated analysis outputs
+analysis/__pycache__/
+analysis/data/*
+!analysis/data/raw/
+analysis/data/raw/*
+!analysis/data/raw/.gitkeep
+analysis/results/*
+!analysis/results/.gitkeep

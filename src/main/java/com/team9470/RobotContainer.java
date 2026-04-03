@@ -23,6 +23,8 @@ import com.team9470.subsystems.Superstructure;
 import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationConfig;
 import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationMode;
 import com.team9470.subsystems.shooter.ShooterConstants;
+import com.team9470.subsystems.shooter.ShooterInterpolationMaps;
+import com.team9470.subsystems.shooter.ShotParameter;
 import com.team9470.util.AutoAim;
 import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveRequest;
@@ -63,8 +65,10 @@ public class RobotContainer {
   private static final String kDebugYShotHoodDegKey = "Debug/YShot/HoodAngleDeg";
   private static final String kActiveWindowEarlyRumbleLeadSecKey = "Debug/Rumble/ActiveLeadEarlySec";
   private static final String kActiveWindowRumbleLeadSecKey = "Debug/Rumble/ActiveLeadSec";
-  private static final double kDebugYShotDefaultRpm = 3000.0;
-  private static final double kDebugYShotDefaultHoodDeg = 30.0;
+  private static final ShotParameter kDebugYShotDefaultShot = ShooterInterpolationMaps.getHub(2.0)
+      .orElse(new ShotParameter(21.0, 1950.0));
+  private static final double kDebugYShotDefaultRpm = kDebugYShotDefaultShot.flywheelRpm();
+  private static final double kDebugYShotDefaultHoodDeg = kDebugYShotDefaultShot.hoodCommandDeg();
   private static final double kShootTranslationDeadband = 0.10;
   private static final double kIntakeHeadingLockMinSpeedMps = 0.15;
   private static final double kIntakeHeadingLockKp = 3.5;

@@ -117,7 +117,7 @@ public class PracticeTimerTracker {
     private double latchedTotalElapsedSec = 0.0;
     private double latchedTotalRemainingSec = 0.0;
 
-    private boolean lastPracticeSelected = false;
+    private boolean lastPracticeMatchTypeSelected = false;
     private boolean lastAutonomousEnabled = false;
     private boolean lastTeleopEnabled = false;
 
@@ -140,8 +140,10 @@ public class PracticeTimerTracker {
     }
 
     public Output update(DriverStationSample sample) {
-        boolean practiceSelected = !sample.isFMSAttached() && sample.matchType() == MatchType.Practice;
-        boolean practiceEdge = practiceSelected && !lastPracticeSelected;
+        boolean practiceMatchTypeSelected = !sample.isFMSAttached() && sample.matchType() == MatchType.Practice;
+        boolean localPracticeCountdownVisible = isLocalPracticeCountdownVisible(sample);
+        boolean practiceSelected = practiceMatchTypeSelected || localPracticeCountdownVisible;
+        boolean practiceEdge = practiceMatchTypeSelected && !lastPracticeMatchTypeSelected;
         boolean autoEnabledEdge = sample.isAutonomousEnabled() && !lastAutonomousEnabled;
         boolean teleopEnabledEdge = sample.isTeleopEnabled() && !lastTeleopEnabled;
 
@@ -172,7 +174,7 @@ public class PracticeTimerTracker {
         }
 
         if (!isRunInitialized() && phase == Phase.IDLE) {
-            lastPracticeSelected = practiceSelected;
+            lastPracticeMatchTypeSelected = practiceMatchTypeSelected;
             lastAutonomousEnabled = sample.isAutonomousEnabled();
             lastTeleopEnabled = sample.isTeleopEnabled();
             return buildOutput(sample, new PhaseTiming(false, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, sample.matchTimeSec()));
@@ -211,7 +213,7 @@ public class PracticeTimerTracker {
                 timing.teleopElapsedSec(),
                 timing.teleopRemainingSec());
 
-        lastPracticeSelected = practiceSelected;
+        lastPracticeMatchTypeSelected = practiceMatchTypeSelected;
         lastAutonomousEnabled = sample.isAutonomousEnabled();
         lastTeleopEnabled = sample.isTeleopEnabled();
 
@@ -449,6 +451,13 @@ public class PracticeTimerTracker {
             return false;
         }
         return true;
+    }
+
+    private boolean isLocalPracticeCountdownVisible(DriverStationSample sample) {
+        return sample.isDSAttached()
+                && !sample.isFMSAttached()
+                && Double.isFinite(sample.matchTimeSec())
+                && sample.matchTimeSec() > 0.0;
     }
 
     private void startRun(double nowSec, int sourceCode) {

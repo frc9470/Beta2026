@@ -38,8 +38,8 @@ public class Autos {
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(2.5))
             .andThen(goToCenter.cmd()));
 
-    // speed.atTime("IntakeDown")
-    //     .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
+    speed.atTime("IntakeDown")
+        .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
     return routine;
   }
 
