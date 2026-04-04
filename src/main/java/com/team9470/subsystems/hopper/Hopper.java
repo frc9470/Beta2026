@@ -48,7 +48,7 @@ public class Hopper extends SubsystemBase {
 
     // Control
     private final VoltageOut hopperVoltageRequest = new VoltageOut(0).withEnableFOC(true);
-    private final VoltageOut feederVoltageRequest = new VoltageOut(0).withEnableFOC(false);
+    private final VoltageOut feederVoltageRequest = new VoltageOut(0).withEnableFOC(true);
     private double commandedHopperVolts = 0.0;
     private double commandedFeederVolts = 0.0;
     private boolean topBeamBreakRawBlocked;
