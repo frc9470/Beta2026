@@ -66,9 +66,9 @@ public class Superstructure extends SubsystemBase {
     private static final double kSotmFireSafetyMinSpeedMps = 0.35;
     private static final double kSotmMaxAccelerationForFireMps2 = 3.5;
     private static final double kSotmMaxOmegaForFireRadPerSec = Math.toRadians(220.0);
-    private static final double kPreloadSettleVolts = -5.0;
+    private static final double kPreloadSettleVolts = -7.0;
     private static final double kPreloadSettleSec = 0.20;
-    private static final double kPreloadStageHopperVolts = -3.0;
+    private static final double kPreloadStageHopperVolts = -3.5;
     private static final double kPreloadStageFeederVolts = -1.5;
     private static final double kPreloadTimeoutSec = 2.5;
     private static final double kPreloadJamCurrentAmps = 18.0;
