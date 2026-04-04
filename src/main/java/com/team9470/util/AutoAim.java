@@ -16,7 +16,7 @@ import java.util.Optional;
 
 public class AutoAim {
     private static final TelemetryManager telemetry = TelemetryManager.getInstance();
-    private static final boolean kEnableSotm = false;
+    private static final boolean kEnableSotm = true;
 
     // Field Geometry (from FieldConstants)
     private static final double BALL_RADIUS_METERS = FieldConstants.GamePiece.ballRadius;
