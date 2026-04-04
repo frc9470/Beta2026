@@ -28,7 +28,7 @@ public class Autos {
     AutoRoutine routine = m_autoFactory.newRoutine("speed");
     AutoTrajectory speed = routine.trajectory("speed");
     AutoTrajectory speed2 = routine.trajectory("speed2");
-    AutoTrajectory goToCenter = routine.trajectory("goToCenter");
+    AutoTrajectory leftTrenchToCenter = routine.trajectory("leftTrenchToCenter");
 
     routine.active().onTrue(
         speed.resetOdometry()
@@ -36,7 +36,7 @@ public class Autos {
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
             .andThen(speed2.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.5))
-            .andThen(goToCenter.cmd()));
+            .andThen(leftTrenchToCenter.cmd()));
 
     speed.atTime("IntakeDown")
         .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
