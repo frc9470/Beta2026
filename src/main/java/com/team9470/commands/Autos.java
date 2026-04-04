@@ -35,7 +35,7 @@ public class Autos {
             .andThen(speed.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
             .andThen(speed2.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.5))
             .andThen(goToCenter.cmd()));
 
     speed.atTime("IntakeDown")
