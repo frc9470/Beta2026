@@ -502,6 +502,7 @@ public class Superstructure extends SubsystemBase {
             boolean agitate,
             boolean useRobotSideForFeedTarget) {
         Swerve swerve = Swerve.getInstance();
+        AtomicBoolean shooterReadyLatched = new AtomicBoolean(false);
         AtomicBoolean armedDuringInactiveThisHold = new AtomicBoolean(false);
         AtomicBoolean timedReleaseStartedThisHold = new AtomicBoolean(false);
         return Commands.run(() -> {
@@ -513,6 +514,9 @@ public class Superstructure extends SubsystemBase {
             intake.setAgitating(agitate);
 
             boolean shooterAtSetpoint = shooter.isAtSetpoint();
+            if (shooterAtSetpoint) {
+                shooterReadyLatched.set(true);
+            }
             boolean canFire = result.isAligned()
                     && result.solution().isValid()
                     && shooterAtSetpoint
@@ -545,8 +549,17 @@ public class Superstructure extends SubsystemBase {
                     canFire,
                     timedFireDecision.allowFeed());
 
-            shooter.setFiring(releaseAllowed);
-            hopper.setRunning(releaseAllowed);
+            boolean useNormalFeedPath = !timedFireDecision.timedAutoArmCandidate()
+                    || timedReleaseStartedThisHold.get();
+            boolean feederShouldRun = useNormalFeedPath
+                    ? shooterReadyLatched.get()
+                    : timedFireDecision.allowFeed();
+            boolean shooterShouldFire = useNormalFeedPath
+                    ? canFire
+                    : timedFireDecision.allowFeed();
+
+            shooter.setFiring(shooterShouldFire);
+            hopper.setRunning(feederShouldRun);
 
             // Drive through the chassis-speed path that also works in autos.
             swerve.setChassisSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(
@@ -559,7 +572,7 @@ public class Superstructure extends SubsystemBase {
             publishTelemetry(
                     true,
                     result.isAligned(),
-                    releaseAllowed,
+                    shooterShouldFire,
                     result.rotationCommand(),
                     result.rotationErrorRad(),
                     limitedTranslation.getNorm());
@@ -580,6 +593,7 @@ public class Superstructure extends SubsystemBase {
             hopper.stop();
             intake.setShooting(false);
             intake.setAgitating(false);
+            shooterReadyLatched.set(false);
             armedDuringInactiveThisHold.set(false);
             timedReleaseStartedThisHold.set(false);
             resetAimSetpointDerivatives();
@@ -587,6 +601,7 @@ public class Superstructure extends SubsystemBase {
             resetTimedShotState();
             swerve.setChassisSpeeds(new ChassisSpeeds());
         }).beforeStarting(() -> {
+            shooterReadyLatched.set(false);
             armedDuringInactiveThisHold.set(matchTimingService.timingKnown() && !matchTimingService.zoneActive());
             timedReleaseStartedThisHold.set(false);
             resetAimSetpointDerivatives();
@@ -602,6 +617,7 @@ public class Superstructure extends SubsystemBase {
      * control.
      */
     public Command shootNoAlignCommand() {
+        AtomicBoolean shooterReadyLatched = new AtomicBoolean(false);
         return Commands.run(() -> {
             var result = getAimResult();
             shooter.setSetpoint(result.solution());
@@ -609,10 +625,13 @@ public class Superstructure extends SubsystemBase {
             intake.setAgitating(true);
 
             boolean shooterAtSetpoint = shooter.isAtSetpoint();
+            if (shooterAtSetpoint) {
+                shooterReadyLatched.set(true);
+            }
             boolean canFire = result.solution().isValid() && shooterAtSetpoint;
 
             shooter.setFiring(canFire);
-            hopper.setRunning(canFire);
+            hopper.setRunning(shooterReadyLatched.get());
 
             publishTelemetry(false, false, canFire, 0.0, 0.0, 0.0);
         }, this).finallyDo(() -> {
@@ -620,7 +639,9 @@ public class Superstructure extends SubsystemBase {
             hopper.stop();
             intake.setShooting(false);
             intake.setAgitating(false);
-        }).withName("Superstructure ShootNoAlign");
+            shooterReadyLatched.set(false);
+        }).beforeStarting(() -> shooterReadyLatched.set(false))
+                .withName("Superstructure ShootNoAlign");
     }
 
     /**
