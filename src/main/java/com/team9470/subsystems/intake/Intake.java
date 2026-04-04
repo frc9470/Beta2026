@@ -57,6 +57,7 @@ public class Intake extends SubsystemBase {
     private boolean agitating = false;
     private boolean shooting = false;
     private double shootingStartTimestampSec = Double.NEGATIVE_INFINITY;
+    private double agitationActiveStartTimestampSec = Double.NaN;
     private boolean needsHoming = true;
     private double homingStallStartTimestampSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
@@ -107,6 +108,9 @@ public class Intake extends SubsystemBase {
 
     public void setAgitating(boolean agitating) {
         this.agitating = agitating;
+        if (!agitating) {
+            agitationActiveStartTimestampSec = Double.NaN;
+        }
     }
 
     public void setShooting(boolean shooting) {
@@ -114,18 +118,45 @@ public class Intake extends SubsystemBase {
             shootingStartTimestampSec = Timer.getFPGATimestamp();
         } else if (!shooting) {
             shootingStartTimestampSec = Double.NEGATIVE_INFINITY;
+            agitationActiveStartTimestampSec = Double.NaN;
         }
         this.shooting = shooting;
     }
 
     private boolean isAgitationActive() {
+        return isAgitationActive(Timer.getFPGATimestamp());
+    }
+
+    private boolean isAgitationActive(double nowSec) {
         if (!agitating) {
             return false;
         }
         if (!shooting) {
             return true;
         }
-        return Timer.getFPGATimestamp() - shootingStartTimestampSec >= IntakeConstants.kShootAgitationDelaySec;
+        return nowSec - shootingStartTimestampSec >= IntakeConstants.kShootAgitationDelaySec;
+    }
+
+    private boolean isLegacyAgitationAtDeploy(double nowSec) {
+        return Math.sin(2.0 * Math.PI * IntakeConstants.kAgitateFrequencyHz * nowSec) >= 0.0;
+    }
+
+    private double getAgitationCompressProgress(double nowSec) {
+        if (Double.isNaN(agitationActiveStartTimestampSec)) {
+            return 0.0;
+        }
+        return Math.max(
+                0.0,
+                Math.min(
+                        1.0,
+                        (nowSec - agitationActiveStartTimestampSec) / IntakeConstants.kAgitateCompressDurationSec));
+    }
+
+    private Angle getCompressedAgitationTargetAngle(double nowSec) {
+        double progress = getAgitationCompressProgress(nowSec);
+        double deployDeg = IntakeConstants.kDeployAngle.in(Degrees);
+        double compressDeg = IntakeConstants.kAgitateMiddleAngle.in(Degrees);
+        return Degrees.of(deployDeg + (compressDeg - deployDeg) * progress);
     }
 
     /**
@@ -137,6 +168,7 @@ public class Intake extends SubsystemBase {
         agitating = false;
         shooting = false;
         shootingStartTimestampSec = Double.NEGATIVE_INFINITY;
+        agitationActiveStartTimestampSec = Double.NaN;
         homingStallStartTimestampSec = Double.NaN;
         needsHoming = true;
     }
@@ -153,7 +185,7 @@ public class Intake extends SubsystemBase {
                 .withName("Intake Toggle High");
     }
 
-    /** Agitate between deploy and middle position while held. */
+    /** Agitate by slowly compressing upward while held. */
     public Command getAgitateCommand() {
         return this.startEnd(
                 () -> setAgitating(true),
@@ -293,16 +325,29 @@ public class Intake extends SubsystemBase {
         // --- Normal operation ---
 
         // Pivot control
-        boolean effectiveAgitating = isAgitationActive();
+        double nowSec = Timer.getFPGATimestamp();
+        boolean effectiveAgitating = isAgitationActive(nowSec);
+        if (effectiveAgitating) {
+            if (Double.isNaN(agitationActiveStartTimestampSec)) {
+                agitationActiveStartTimestampSec = nowSec;
+            }
+        } else {
+            agitationActiveStartTimestampSec = Double.NaN;
+        }
         boolean shootingDelayActive = agitating && shooting && !effectiveAgitating;
         boolean agitateAtDeploy = false;
         if (effectiveAgitating) {
-            double t = Timer.getFPGATimestamp();
-            agitateAtDeploy = Math.sin(2.0 * Math.PI * IntakeConstants.kAgitateFrequencyHz * t) >= 0.0;
+            if (IntakeConstants.kUseLegacyAgitationOscillation) {
+                agitateAtDeploy = isLegacyAgitationAtDeploy(nowSec);
+            } else {
+                agitateAtDeploy = getAgitationCompressProgress(nowSec) < 1.0;
+            }
         }
         Angle targetAngle;
         if (effectiveAgitating) {
-            targetAngle = agitateAtDeploy ? IntakeConstants.kDeployAngle : IntakeConstants.kAgitateMiddleAngle;
+            targetAngle = IntakeConstants.kUseLegacyAgitationOscillation
+                    ? (agitateAtDeploy ? IntakeConstants.kDeployAngle : IntakeConstants.kAgitateMiddleAngle)
+                    : getCompressedAgitationTargetAngle(nowSec);
         } else if (deployHigh) {
             targetAngle = IntakeConstants.kDeployHighAngle;
         } else if (deployed) {

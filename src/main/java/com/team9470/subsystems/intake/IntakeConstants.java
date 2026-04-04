@@ -16,10 +16,12 @@ public class IntakeConstants {
     // Setpoints
     public static final Angle kDeployAngle = Degrees.of(4.0); // Down/Floor
     public static final Angle kDeployHighAngle = Degrees.of(-10.0); // Deploy +10 deg
-    public static final Angle kAgitateMiddleAngle = Degrees.of(80.0); // Slightly higher mid position for shot agitation
+    public static final Angle kAgitateMiddleAngle = Degrees.of(80.0); // Upper compression target during shot agitation
     public static final Angle kRetractAngle = Degrees.of(110.0); // Up/Stowed
     public static final double kRollerVoltage = 9.6;
-    public static final double kAgitateFrequencyHz = 1.0;
+    public static final boolean kUseLegacyAgitationOscillation = false;
+    public static final double kAgitateCompressDurationSec = 1.25;
+    public static final double kAgitateFrequencyHz = 1.0; // Legacy deploy/mid oscillation frequency
     public static final double kShootAgitationDelaySec = 1;
 
     // Simulation

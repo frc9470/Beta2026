@@ -372,6 +372,9 @@ public class Superstructure extends SubsystemBase {
             double requestedVxMps,
             double requestedVyMps) {
         Translation2d requestedVelocity = new Translation2d(requestedVxMps, requestedVyMps);
+        if (!AutoAim.isSotmEnabled()) {
+            return requestedVelocity;
+        }
         double requestedSpeed = requestedVelocity.getNorm();
         if (requestedSpeed < kShootVelocityLimitMinRequestMps) {
             return requestedVelocity;
@@ -423,6 +426,9 @@ public class Superstructure extends SubsystemBase {
     }
 
     private static boolean isSotmFireSafe(AutoAim.ShootingSolution solution, ChassisSpeeds robotSpeeds) {
+        if (!AutoAim.isSotmEnabled()) {
+            return true;
+        }
         if (solution.shooterFieldSpeedMps() < kSotmFireSafetyMinSpeedMps) {
             // Stationary or near-stationary shot path: don't apply moving-shot inhibit.
             return true;
