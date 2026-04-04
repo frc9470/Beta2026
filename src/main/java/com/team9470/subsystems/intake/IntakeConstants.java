@@ -64,7 +64,7 @@ public class IntakeConstants {
 
     static {
         // Pivot Config
-        kPivotConfig.Slot0.kP = 50.0;
+        kPivotConfig.Slot0.kP = 60.0;
         kPivotConfig.Slot0.kI = 0.0;
         kPivotConfig.Slot0.kD = 0.0;
         kPivotConfig.Slot0.kV = 0.5;
