@@ -98,7 +98,7 @@ public class Autos {
     return routine;
   }
 
-  public AutoRoutine leftBump(){
+  public AutoRoutine leftBump() {
     AutoRoutine routine = m_autoFactory.newRoutine("leftBump");
     AutoTrajectory leftBump = routine.trajectory("leftBumpCycle1");
     AutoTrajectory leftBump2 = routine.trajectory("leftBumpCycle2");
@@ -110,8 +110,25 @@ public class Autos {
             .andThen(leftBump.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
             .andThen(leftBump2.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(leftBump3.cmd()));
+    return routine;
+  }
+
+  public AutoRoutine rightBump() {
+    AutoRoutine routine = m_autoFactory.newRoutine("rightBump");
+    AutoTrajectory rightBump = routine.trajectory("rightBumpCycle1");
+    AutoTrajectory rightBump2 = routine.trajectory("rightBumpCycle2");
+    AutoTrajectory rightBump3 = routine.trajectory("rightBumpToCenter");
+
+    routine.active().onTrue(
+        rightBump.resetOdometry()
+            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
+            .andThen(rightBump.cmd())
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
+            .andThen(rightBump2.cmd())
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
+            .andThen(rightBump3.cmd()));
     return routine;
   }
 }
