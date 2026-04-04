@@ -323,6 +323,7 @@ public class RobotContainer {
     m_autoChooser.addRoutine("rightTrenchPrototype", m_autos::rightTrenchPrototype);
     m_autoChooser.addRoutine("shootPreloaded", m_autos::shootPreloaded);
     m_autoChooser.addRoutine("speed", m_autos::speed);
+    m_autoChooser.addRoutine("leftBump", m_autos::leftBump);
     m_autoChooser.select("Do Nothing");
     SmartDashboard.putData("AutoChooser", m_autoChooser);
   }

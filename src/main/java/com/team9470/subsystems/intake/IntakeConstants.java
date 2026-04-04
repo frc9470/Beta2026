@@ -29,7 +29,7 @@ public class IntakeConstants {
     public static final double kIntakeMass = 4.0; // kg
 
     // Current Limits
-    public static final double kPivotSupplyCurrentLimit = 25.0;
+    public static final double kPivotStatorCurrentLimit = 40.0;
     public static final double kRollerStatorCurrentLimit = 30.0;
 
     // ==================== HOMING ====================
@@ -64,7 +64,7 @@ public class IntakeConstants {
 
     static {
         // Pivot Config
-        kPivotConfig.Slot0.kP = 40.0;
+        kPivotConfig.Slot0.kP = 50.0;
         kPivotConfig.Slot0.kI = 0.0;
         kPivotConfig.Slot0.kD = 0.0;
         kPivotConfig.Slot0.kV = 0.5;
@@ -77,9 +77,9 @@ public class IntakeConstants {
         kPivotConfig.MotionMagic.MotionMagicAcceleration = 8.0; // rad/s^2
         kPivotConfig.MotionMagic.MotionMagicJerk = 0;
         kPivotConfig.CurrentLimits
-                .withSupplyCurrentLimit(kPivotSupplyCurrentLimit)
-                .withSupplyCurrentLimitEnable(true)
-                .withStatorCurrentLimitEnable(false);
+                .withStatorCurrentLimit(kPivotStatorCurrentLimit)
+                .withStatorCurrentLimitEnable(true)
+                .withSupplyCurrentLimitEnable(false);
 
         // Roller Config
         kLeftRollerConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
