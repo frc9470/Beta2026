@@ -175,14 +175,10 @@ public class Superstructure extends SubsystemBase {
                     shooter.setHoodAngle(maxHoodRotations);
                     shooter.setFiring(true);
                     hopper.setRunning(true);
-                    intake.setShooting(true);
-                    intake.setAgitating(true);
                 },
                 () -> {
                     shooter.stop();
                     hopper.stop();
-                    intake.setShooting(false);
-                    intake.setAgitating(false);
                 }).withName("Superstructure Feed");
     }
 
@@ -458,7 +454,7 @@ public class Superstructure extends SubsystemBase {
      * aim).
      */
     public Command aimAndShootCommand() {
-        return aimAndShootCommand(() -> 0.0, () -> 0.0, true);
+        return aimAndShootCommand(() -> 0.0, () -> 0.0, false);
     }
 
     /**
@@ -469,19 +465,7 @@ public class Superstructure extends SubsystemBase {
      * @param vySupplier field-relative Y velocity (m/s)
      */
     public Command aimAndShootCommand(Supplier<Double> vxSupplier, Supplier<Double> vySupplier) {
-        return aimAndShootCommand(vxSupplier, vySupplier, true);
-    }
-
-    /**
-     * Aim, rotate, and shoot — full version.
-     * Handles swerve rotation automatically via auto-aim.
-     *
-     * @param vxSupplier field-relative X velocity (m/s)
-     * @param vySupplier field-relative Y velocity (m/s)
-     * @param agitate    whether to agitate the intake during shooting
-     */
-    public Command aimAndShootCommand(Supplier<Double> vxSupplier, Supplier<Double> vySupplier, boolean agitate) {
-        return aimAndShootCommand(vxSupplier, vySupplier, agitate, !agitate);
+        return aimAndShootCommand(vxSupplier, vySupplier, false);
     }
 
     /**
@@ -491,15 +475,12 @@ public class Superstructure extends SubsystemBase {
      *
      * @param vxSupplier                   field-relative X velocity (m/s)
      * @param vySupplier                   field-relative Y velocity (m/s)
-     * @param agitate                      whether to agitate the intake during
-     *                                     shooting
      * @param useRobotSideForFeedTarget    when true, feed mode target side is
      *                                     selected from robot side (left/right)
      */
     public Command aimAndShootCommand(
             Supplier<Double> vxSupplier,
             Supplier<Double> vySupplier,
-            boolean agitate,
             boolean useRobotSideForFeedTarget) {
         Swerve swerve = Swerve.getInstance();
         AtomicBoolean shooterReadyLatched = new AtomicBoolean(false);
@@ -510,8 +491,6 @@ public class Superstructure extends SubsystemBase {
             ChassisSpeeds robotSpeeds = speedsSupplier.get();
             var result = getAimResult(robotPose, robotSpeeds, useRobotSideForFeedTarget);
             shooter.setSetpoint(result.solution());
-            intake.setShooting(true);
-            intake.setAgitating(agitate);
 
             boolean shooterAtSetpoint = shooter.isAtSetpoint();
             if (shooterAtSetpoint) {
@@ -561,12 +540,11 @@ public class Superstructure extends SubsystemBase {
             shooter.setFiring(shooterShouldFire);
             hopper.setRunning(feederShouldRun);
 
-            // Drive through the chassis-speed path that also works in autos.
-            swerve.setChassisSpeeds(ChassisSpeeds.fromFieldRelativeSpeeds(
+            // Drive field-relative through FieldCentric (handles operator perspective).
+            swerve.setFieldSpeeds(
                     limitedTranslation.getX(),
                     limitedTranslation.getY(),
-                    result.rotationCommand(),
-                    robotPose.getRotation()));
+                    result.rotationCommand());
 
             // Telemetry
             publishTelemetry(
@@ -591,15 +569,13 @@ public class Superstructure extends SubsystemBase {
         }, this, swerve).finallyDo(() -> {
             shooter.stop();
             hopper.stop();
-            intake.setShooting(false);
-            intake.setAgitating(false);
             shooterReadyLatched.set(false);
             armedDuringInactiveThisHold.set(false);
             timedReleaseStartedThisHold.set(false);
             resetAimSetpointDerivatives();
             telemetry.publishDriveAutoAim(false, 0.0, 0.0);
             resetTimedShotState();
-            swerve.setChassisSpeeds(new ChassisSpeeds());
+            swerve.setFieldSpeeds(0.0, 0.0, 0.0);
         }).beforeStarting(() -> {
             shooterReadyLatched.set(false);
             armedDuringInactiveThisHold.set(matchTimingService.timingKnown() && !matchTimingService.zoneActive());
@@ -621,8 +597,6 @@ public class Superstructure extends SubsystemBase {
         return Commands.run(() -> {
             var result = getAimResult();
             shooter.setSetpoint(result.solution());
-            intake.setShooting(true);
-            intake.setAgitating(true);
 
             boolean shooterAtSetpoint = shooter.isAtSetpoint();
             if (shooterAtSetpoint) {
@@ -637,8 +611,6 @@ public class Superstructure extends SubsystemBase {
         }, this).finallyDo(() -> {
             shooter.stop();
             hopper.stop();
-            intake.setShooting(false);
-            intake.setAgitating(false);
             shooterReadyLatched.set(false);
         }).beforeStarting(() -> shooterReadyLatched.set(false))
                 .withName("Superstructure ShootNoAlign");
@@ -651,8 +623,6 @@ public class Superstructure extends SubsystemBase {
         return Commands.runOnce(() -> {
             shooter.stop();
             hopper.stop();
-            intake.setShooting(false);
-            intake.setAgitating(false);
         }, this).withName("Superstructure Idle");
     }
 

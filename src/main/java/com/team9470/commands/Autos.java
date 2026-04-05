@@ -108,7 +108,7 @@ public class Autos {
         leftBump.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(leftBump.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(leftBump2.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(leftBump3.cmd()));
@@ -125,7 +125,7 @@ public class Autos {
         rightBump.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(rightBump.cmd())
-            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(rightBump2.cmd())
             .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(rightBump3.cmd()));

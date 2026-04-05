@@ -167,30 +167,20 @@ public class RobotContainer {
   private void configureBindings() {
     // ==================== TRIGGERS ====================
 
-    // Left Trigger: Shoot without auto-align (uses AutoAim setpoint but no swerve
-    // rotation override)
-    m_driverController.leftTrigger().whileTrue(m_superstructure.shootNoAlignCommand());
+    // Left Trigger: Agitate intake (hold to agitate to high angle)
+    m_driverController.leftTrigger().whileTrue(m_superstructure.agitateIntakeCommand());
 
     // Right Trigger: Auto-Aim & Shoot/Feed
     m_driverController.rightTrigger().whileTrue(
         m_superstructure.aimAndShootCommand(
             () -> getShootTranslationSpeed(m_driverController.getLeftY()),
             () -> getShootTranslationSpeed(m_driverController.getLeftX()),
-            true,
             true));
 
     // ==================== BUMPERS ====================
 
     // Left Bumper: Toggle intake deployed/retracted
     m_driverController.leftBumper().onTrue(m_superstructure.toggleIntakeCommand());
-
-    // Right Bumper: Aim and shoot WITHOUT intake agitation
-    m_driverController.rightBumper().whileTrue(
-        m_superstructure.aimAndShootCommand(
-            () -> getShootTranslationSpeed(m_driverController.getLeftY()),
-            () -> getShootTranslationSpeed(m_driverController.getLeftX()),
-            false,
-            true));
 
     // ==================== FACE BUTTONS ====================
 
@@ -232,7 +222,6 @@ public class RobotContainer {
                 debugYShotReadyLatched.set(true);
               }
 
-              m_superstructure.getIntake().setShooting(true);
               m_superstructure.getIntake().setAgitating(true);
               m_superstructure.getShooter().setFiring(shooterAtSetpoint);
               m_superstructure.getHopper().setRunning(debugYShotReadyLatched.get());
@@ -253,7 +242,6 @@ public class RobotContainer {
             .finallyDo(() -> {
               m_superstructure.getShooter().stop();
               m_superstructure.getHopper().stop();
-              m_superstructure.getIntake().setShooting(false);
               m_superstructure.getIntake().setAgitating(false);
               debugYShotReadyLatched.set(false);
               telemetry.publishYShotState(new YShotSnapshot(
@@ -339,20 +327,17 @@ public class RobotContainer {
     return Commands.sequence(
         Commands.runOnce(() -> {
           m_superstructure.getHopper().stop();
-          m_superstructure.getIntake().setShooting(false);
           m_superstructure.getIntake().setAgitating(false);
           m_superstructure.getShooter().startCharacterization(shooterCharacterizationConfig, mode);
         }, m_superstructure.getShooter(), m_superstructure.getHopper(), m_superstructure.getIntake()),
         Commands.run(() -> {
           m_superstructure.getHopper().stop();
-          m_superstructure.getIntake().setShooting(false);
           m_superstructure.getIntake().setAgitating(false);
         }, m_superstructure.getShooter(), m_superstructure.getHopper(), m_superstructure.getIntake())
             .until(() -> !m_superstructure.getShooter().isCharacterizing()))
         .finallyDo(interrupted -> {
           m_superstructure.getShooter().stopCharacterization();
           m_superstructure.getHopper().stop();
-          m_superstructure.getIntake().setShooting(false);
           m_superstructure.getIntake().setAgitating(false);
         })
         .withName(name);

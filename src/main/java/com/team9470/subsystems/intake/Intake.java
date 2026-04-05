@@ -55,9 +55,6 @@ public class Intake extends SubsystemBase {
     private boolean deployed = false;
     private boolean deployHigh = false;
     private boolean agitating = false;
-    private boolean shooting = false;
-    private double shootingStartTimestampSec = Double.NEGATIVE_INFINITY;
-    private double agitationActiveStartTimestampSec = Double.NaN;
     private boolean needsHoming = true;
     private double homingStallStartTimestampSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
@@ -71,10 +68,8 @@ public class Intake extends SubsystemBase {
     private static final int STATE_HOMING = 0;
     private static final int STATE_RETRACTED = 1;
     private static final int STATE_DEPLOYED = 2;
-    private static final int STATE_AGITATE_DEPLOY = 3;
-    private static final int STATE_AGITATE_MID = 4;
+    private static final int STATE_AGITATING = 3;
     private static final int STATE_DEPLOYED_HIGH = 5;
-    private static final int STATE_SHOOTING_OVERRIDE = 6;
 
     private Intake() {
         // Apply configurations
@@ -108,56 +103,9 @@ public class Intake extends SubsystemBase {
 
     public void setAgitating(boolean agitating) {
         this.agitating = agitating;
-        if (!agitating) {
-            agitationActiveStartTimestampSec = Double.NaN;
-        }
     }
 
-    public void setShooting(boolean shooting) {
-        if (shooting && !this.shooting) {
-            shootingStartTimestampSec = Timer.getFPGATimestamp();
-        } else if (!shooting) {
-            shootingStartTimestampSec = Double.NEGATIVE_INFINITY;
-            agitationActiveStartTimestampSec = Double.NaN;
-        }
-        this.shooting = shooting;
-    }
 
-    private boolean isAgitationActive() {
-        return isAgitationActive(Timer.getFPGATimestamp());
-    }
-
-    private boolean isAgitationActive(double nowSec) {
-        if (!agitating) {
-            return false;
-        }
-        if (!shooting) {
-            return true;
-        }
-        return nowSec - shootingStartTimestampSec >= IntakeConstants.kShootAgitationDelaySec;
-    }
-
-    private boolean isLegacyAgitationAtDeploy(double nowSec) {
-        return Math.sin(2.0 * Math.PI * IntakeConstants.kAgitateFrequencyHz * nowSec) >= 0.0;
-    }
-
-    private double getAgitationCompressProgress(double nowSec) {
-        if (Double.isNaN(agitationActiveStartTimestampSec)) {
-            return 0.0;
-        }
-        return Math.max(
-                0.0,
-                Math.min(
-                        1.0,
-                        (nowSec - agitationActiveStartTimestampSec) / IntakeConstants.kAgitateCompressDurationSec));
-    }
-
-    private Angle getCompressedAgitationTargetAngle(double nowSec) {
-        double progress = getAgitationCompressProgress(nowSec);
-        double deployDeg = IntakeConstants.kDeployAngle.in(Degrees);
-        double compressDeg = IntakeConstants.kAgitateMiddleAngle.in(Degrees);
-        return Degrees.of(deployDeg + (compressDeg - deployDeg) * progress);
-    }
 
     /**
      * Request intake pivot re-homing against its retract hardstop.
@@ -166,9 +114,6 @@ public class Intake extends SubsystemBase {
         deployed = false;
         deployHigh = false;
         agitating = false;
-        shooting = false;
-        shootingStartTimestampSec = Double.NEGATIVE_INFINITY;
-        agitationActiveStartTimestampSec = Double.NaN;
         homingStallStartTimestampSec = Double.NaN;
         needsHoming = true;
     }
@@ -325,30 +270,10 @@ public class Intake extends SubsystemBase {
         // --- Normal operation ---
 
         // Pivot control
-        double nowSec = Timer.getFPGATimestamp();
-        boolean effectiveAgitating = isAgitationActive(nowSec);
-        if (effectiveAgitating) {
-            if (Double.isNaN(agitationActiveStartTimestampSec)) {
-                agitationActiveStartTimestampSec = nowSec;
-            }
-        } else {
-            agitationActiveStartTimestampSec = Double.NaN;
-        }
-        boolean shootingDelayActive = agitating && shooting && !effectiveAgitating;
-        boolean agitateAtDeploy = false;
-        if (effectiveAgitating) {
-            if (IntakeConstants.kUseLegacyAgitationOscillation) {
-                agitateAtDeploy = isLegacyAgitationAtDeploy(nowSec);
-            } else {
-                agitateAtDeploy = getAgitationCompressProgress(nowSec) < 1.0;
-            }
-        }
         Angle targetAngle;
-        if (effectiveAgitating) {
-            targetAngle = IntakeConstants.kUseLegacyAgitationOscillation
-                    ? (agitateAtDeploy ? IntakeConstants.kDeployAngle : IntakeConstants.kAgitateMiddleAngle)
-                    : getCompressedAgitationTargetAngle(nowSec);
-        } else if (deployHigh) {
+        if (deployHigh) {
+            targetAngle = IntakeConstants.kDeployHighAngle;
+        } else if (agitating) {
             targetAngle = IntakeConstants.kDeployHighAngle;
         } else if (deployed) {
             targetAngle = IntakeConstants.kDeployAngle;
@@ -359,7 +284,7 @@ public class Intake extends SubsystemBase {
         pivot.setControl(mmRequest.withPosition(targetRot));
 
         // Roller control
-        double rollerVolts = (deployed || deployHigh || effectiveAgitating) ? IntakeConstants.kRollerVoltage : 0.0;
+        double rollerVolts = (deployed || deployHigh || agitating) ? IntakeConstants.kRollerVoltage : 0.0;
         leftRoller.setControl(rollerVoltageRequest.withOutput(rollerVolts));
 
         // --- Telemetry ---
@@ -370,10 +295,8 @@ public class Intake extends SubsystemBase {
         double setpointRad = IntakeConstants.pivotMechanismRotationsToAngle(targetRot).in(Radians);
 
         int stateCode;
-        if (shootingDelayActive) {
-            stateCode = STATE_SHOOTING_OVERRIDE;
-        } else if (effectiveAgitating) {
-            stateCode = agitateAtDeploy ? STATE_AGITATE_DEPLOY : STATE_AGITATE_MID;
+        if (agitating) {
+            stateCode = STATE_AGITATING;
         } else if (deployHigh) {
             stateCode = STATE_DEPLOYED_HIGH;
         } else if (deployed) {
@@ -411,13 +334,13 @@ public class Intake extends SubsystemBase {
     @Override
     public void simulationPeriodic() {
         // TODO: Make it simulate both left and right roller.
-        IntakeSimulation.getInstance().update(pivot, leftRoller, deployed || deployHigh || isAgitationActive());
+        IntakeSimulation.getInstance().update(pivot, leftRoller, deployed || deployHigh || agitating);
     }
 
     // --- Accessors for physics ---
 
     public boolean isRunning() {
-        return deployed || deployHigh || isAgitationActive();
+        return deployed || deployHigh || agitating;
     }
 
     public boolean isDeployed() {

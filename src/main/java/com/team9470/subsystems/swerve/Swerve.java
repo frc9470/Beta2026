@@ -84,7 +84,8 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     private final SwerveRequest.SysIdSwerveSteerGains steerCharacterization = new SwerveRequest.SysIdSwerveSteerGains();
     private final SwerveRequest.SysIdSwerveRotation rotationCharacterization = new SwerveRequest.SysIdSwerveRotation();
     private final SwerveRequest.RobotCentric robotCentricRequest = new SwerveRequest.RobotCentric();
-    private final SwerveRequest.FieldCentric fieldCentricRequest = new SwerveRequest.FieldCentric();
+    private final SwerveRequest.FieldCentric fieldCentricRequest = new SwerveRequest.FieldCentric()
+            .withDriveRequestType(SwerveModule.DriveRequestType.Velocity);
     /*
      * SysId routine for characterizing translation. This is used to find PID gains
      * for the drive motors.
@@ -301,6 +302,18 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
                 robotCentricRequest.withVelocityX(speeds.vxMetersPerSecond)
                         .withVelocityY(speeds.vyMetersPerSecond)
                         .withRotationalRate(speeds.omegaRadiansPerSecond));
+    }
+
+    /**
+     * Drive with field-relative speeds, accounting for operator perspective.
+     * Use this instead of setChassisSpeeds when the caller is providing
+     * field-relative velocities (e.g. shoot-on-the-move translation).
+     */
+    public void setFieldSpeeds(double vxMetersPerSecond, double vyMetersPerSecond, double omegaRadiansPerSecond) {
+        setControl(
+                fieldCentricRequest.withVelocityX(vxMetersPerSecond)
+                        .withVelocityY(vyMetersPerSecond)
+                        .withRotationalRate(omegaRadiansPerSecond));
     }
 
     public DriverStation.Alliance getAlliance() {
