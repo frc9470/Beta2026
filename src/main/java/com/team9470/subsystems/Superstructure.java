@@ -4,12 +4,14 @@ import com.team9470.TunerConstants;
 import com.team9470.subsystems.hopper.Hopper;
 import com.team9470.subsystems.intake.Intake;
 import com.team9470.subsystems.shooter.Shooter;
+import com.team9470.subsystems.shooter.ShooterConstants;
 import com.team9470.telemetry.MatchTimingService;
 import com.team9470.telemetry.TelemetryManager;
 import com.team9470.telemetry.structs.HopperPreloadSnapshot;
 import com.team9470.telemetry.structs.SuperstructureSnapshot;
 import com.team9470.telemetry.structs.TimedShotSnapshot;
 import com.team9470.util.AutoAim;
+import com.team9470.util.GeomUtil;
 import com.team9470.util.TimedFirePolicy;
 
 import com.team9470.subsystems.swerve.Swerve;
@@ -20,10 +22,14 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
+import static edu.wpi.first.units.Units.Meters;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -66,6 +72,12 @@ public class Superstructure extends SubsystemBase {
     private static final double kSotmFireSafetyMinSpeedMps = 0.35;
     private static final double kSotmMaxAccelerationForFireMps2 = 3.5;
     private static final double kSotmMaxOmegaForFireRadPerSec = Math.toRadians(220.0);
+    // COR shifting constants (ported from MechAdv DriveCommands)
+    private static final double kCORMinErrorDeg = 15.0;
+    private static final double kCORMaxErrorDeg = 30.0;
+    // O-Lock thresholds (ported from MechAdv DriveCommands)
+    private static final double kOLockSpeedThresholdMps = 0.1;
+    private static final double kOLockOmegaThresholdRadPerSec = 0.15;
     private static final double kPreloadSettleVolts = -7.0;
     private static final double kPreloadSettleSec = 0.50;
     private static final double kPreloadStageHopperVolts = -3.5;
@@ -543,11 +555,39 @@ public class Superstructure extends SubsystemBase {
             shooter.setFiring(shooterShouldFire);
             hopper.setRunning(feederShouldRun);
 
-            // Drive field-relative through FieldCentric (handles operator perspective).
-            swerve.setFieldSpeeds(
-                    limitedTranslation.getX(),
-                    limitedTranslation.getY(),
-                    result.rotationCommand());
+            // ---- COR shifting + O-Lock (ported from MechAdv DriveCommands) ----
+            // Convert operator-perspective translation to actual field-relative
+            boolean allianceFlip = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red;
+            double fieldVx = allianceFlip ? -limitedTranslation.getX() : limitedTranslation.getX();
+            double fieldVy = allianceFlip ? -limitedTranslation.getY() : limitedTranslation.getY();
+
+            // Compute COR scalar — shifts rotation center toward shooter when yaw error is large
+            double yawErrorDeg = Math.toDegrees(Math.abs(result.rotationErrorRad()));
+            double corScalar = MathUtil.clamp(
+                    (yawErrorDeg - kCORMinErrorDeg) / (kCORMaxErrorDeg - kCORMinErrorDeg),
+                    0.0, 1.0);
+
+            // Shooter-to-robot offset (negative of robot-to-shooter offset)
+            Translation2d shooterToRobot = new Translation2d(
+                    -ShooterConstants.kShooterOffsetX.in(Meters), 0.0);
+
+            // Apply COR shift via velocity transform
+            ChassisSpeeds fieldSpeedsWithCOR = GeomUtil.transformVelocity(
+                    new ChassisSpeeds(fieldVx, fieldVy, result.rotationCommand()),
+                    shooterToRobot.times(1.0 - corScalar),
+                    robotPose.getRotation());
+
+            // O-Lock: X-lock wheels when near-stationary and aligned
+            boolean oLock = Math.hypot(
+                    fieldSpeedsWithCOR.vxMetersPerSecond,
+                    fieldSpeedsWithCOR.vyMetersPerSecond) < kOLockSpeedThresholdMps
+                    && Math.abs(fieldSpeedsWithCOR.omegaRadiansPerSecond) < kOLockOmegaThresholdRadPerSec;
+
+            if (oLock) {
+                swerve.stopWithXLock();
+            } else {
+                swerve.driveFieldRelative(fieldSpeedsWithCOR);
+            }
 
             // Telemetry
             publishTelemetry(

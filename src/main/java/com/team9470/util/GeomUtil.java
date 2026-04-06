@@ -160,4 +160,27 @@ public class GeomUtil {
     public static Pose2d withRotation(Pose2d pose, Rotation2d rotation) {
         return new Pose2d(pose.getTranslation(), rotation);
     }
+
+    /**
+     * Transforms field-relative ChassisSpeeds to account for a shifted center of rotation.
+     * Ported from MechAdv's GeomUtil for COR shifting during shoot-on-the-move.
+     *
+     * @param velocity        Field-relative ChassisSpeeds
+     * @param transform       Robot-frame offset to the desired center of rotation
+     * @param currentRotation Current robot heading (field-relative)
+     * @return Adjusted field-relative ChassisSpeeds
+     */
+    public static ChassisSpeeds transformVelocity(
+            ChassisSpeeds velocity, Translation2d transform, Rotation2d currentRotation) {
+        return new ChassisSpeeds(
+                velocity.vxMetersPerSecond
+                        - velocity.omegaRadiansPerSecond
+                                * (transform.getX() * currentRotation.getSin()
+                                        + transform.getY() * currentRotation.getCos()),
+                velocity.vyMetersPerSecond
+                        + velocity.omegaRadiansPerSecond
+                                * (transform.getX() * currentRotation.getCos()
+                                        - transform.getY() * currentRotation.getSin()),
+                velocity.omegaRadiansPerSecond);
+    }
 }
