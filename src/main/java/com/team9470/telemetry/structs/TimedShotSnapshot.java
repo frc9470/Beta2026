@@ -10,6 +10,8 @@ public record TimedShotSnapshot(
         boolean timedReleaseStarted,
         boolean timingKnown,
         boolean zoneActive,
+        boolean topSensorBlocked,
+        boolean releaseWindowOpen,
         double zoneRemainingSec,
         double launchLeadSec,
         boolean timedReleaseAllowed,

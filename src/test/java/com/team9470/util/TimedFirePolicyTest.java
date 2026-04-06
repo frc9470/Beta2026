@@ -38,6 +38,7 @@ class TimedFirePolicyTest {
 
         assertFalse(decision.timedAutoArmCandidate());
         assertFalse(decision.allowFeed());
+        assertTrue(decision.releaseWindowOpen());
     }
 
     @Test
@@ -57,6 +58,7 @@ class TimedFirePolicyTest {
 
         assertTrue(decision.timedAutoArmCandidate());
         assertFalse(decision.allowFeed());
+        assertFalse(decision.releaseWindowOpen());
     }
 
     @Test
@@ -76,6 +78,7 @@ class TimedFirePolicyTest {
 
         assertTrue(decision.timedAutoArmCandidate());
         assertFalse(decision.allowFeed());
+        assertTrue(decision.releaseWindowOpen());
     }
 
     @Test
@@ -95,6 +98,7 @@ class TimedFirePolicyTest {
 
         assertTrue(decision.timedAutoArmCandidate());
         assertTrue(decision.allowFeed());
+        assertTrue(decision.releaseWindowOpen());
     }
 
     @Test
@@ -114,5 +118,6 @@ class TimedFirePolicyTest {
 
         assertFalse(decision.timedAutoArmCandidate());
         assertFalse(decision.allowFeed());
+        assertTrue(decision.releaseWindowOpen());
     }
 }

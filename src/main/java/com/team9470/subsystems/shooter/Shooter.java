@@ -135,6 +135,16 @@ public class Shooter extends SubsystemBase {
         return Math.max(minRot, Math.min(maxRot, rotations));
     }
 
+    private static String stateLabel(int stateCode) {
+        return switch (stateCode) {
+            case STATE_HOMING -> "Homing";
+            case STATE_IDLE -> "Idle";
+            case STATE_SPINNING_UP -> "SpinningUp";
+            case STATE_FIRING -> "Firing";
+            default -> "Unknown";
+        };
+    }
+
     public Shooter() {
         // Configure motors
         TalonUtil.applyAndCheckConfiguration(flywheel1, ShooterConstants.kFlywheelConfig);
@@ -523,16 +533,24 @@ public class Shooter extends SubsystemBase {
         // === Telemetry (always runs) ===
         double targetHoodRot = characterizationSession != null ? kMinHoodAngleRotations : targetHoodAngleRotations;
         double targetLaunchRad = ShooterConstants.mechanismRotationsToLaunchRad(targetHoodRot);
-        boolean atSetpoint = !needsHoming
-                && isAtCommandedSetpoint(currentRPS, currentHoodRot, commandedFlywheelRps, targetHoodRot);
+        double hoodErrorRotations = targetHoodRot - currentHoodRot;
+        double flywheelErrorRps = commandedFlywheelRps - currentRPS;
+        boolean hoodAtSetpoint = !needsHoming && Math.abs(hoodErrorRotations) < kHoodSetpointToleranceRotations;
+        boolean flywheelAtSetpoint = !needsHoming && Math.abs(flywheelErrorRps) < kFlywheelSetpointToleranceRPS;
+        boolean atSetpoint = hoodAtSetpoint && flywheelAtSetpoint;
         int stateCode = needsHoming
                 ? STATE_HOMING
                 : (isFiring ? STATE_FIRING : (commandedFlywheelRps > 0.0 ? STATE_SPINNING_UP : STATE_IDLE));
+        double nominalFlywheelTargetRps = characterizationSession != null ? commandedFlywheelRps : nominalTargetSpeedRPS;
+        boolean overrevTelemetryActive = characterizationSession == null && overrevActive;
 
         telemetry.publishShooterState(new ShooterSnapshot(
                 needsHoming,
                 isFiring,
                 atSetpoint,
+                hoodAtSetpoint,
+                flywheelAtSetpoint,
+                overrevTelemetryActive,
                 stateCode,
                 targetLaunchRad,
                 targetLaunchRad,
@@ -542,12 +560,14 @@ public class Shooter extends SubsystemBase {
                 hoodMotor.getStatorCurrent().getValueAsDouble(),
                 hoodMotor.getSupplyCurrent().getValueAsDouble(),
                 hoodMotor.getMotorVoltage().getValueAsDouble(),
+                nominalFlywheelTargetRps,
                 commandedFlywheelRps,
                 currentRPS,
-                commandedFlywheelRps - currentRPS,
+                flywheelErrorRps,
                 avgFlywheelVoltage,
                 avgFlywheelSupplyCurrent,
-                avgFlywheelStatorCurrent));
+                avgFlywheelStatorCurrent),
+                stateLabel(stateCode));
 
         if (characterizationSession != null && characterizationSample != null) {
             characterizationStatus = characterizationSession.status();
