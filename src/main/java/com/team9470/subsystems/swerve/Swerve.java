@@ -86,6 +86,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     private final SwerveRequest.RobotCentric robotCentricRequest = new SwerveRequest.RobotCentric();
     private final SwerveRequest.FieldCentric fieldCentricRequest = new SwerveRequest.FieldCentric()
             .withDriveRequestType(SwerveModule.DriveRequestType.Velocity);
+    private final SwerveRequest.SwerveDriveBrake brakeRequest = new SwerveRequest.SwerveDriveBrake();
     /*
      * SysId routine for characterizing translation. This is used to find PID gains
      * for the drive motors.
@@ -314,6 +315,23 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
                 fieldCentricRequest.withVelocityX(vxMetersPerSecond)
                         .withVelocityY(vyMetersPerSecond)
                         .withRotationalRate(omegaRadiansPerSecond));
+    }
+
+    /**
+     * X-lock all swerve modules (defensive stance).
+     * Used during SOTM O-Lock when near-stationary and aligned.
+     */
+    public void stopWithXLock() {
+        setControl(brakeRequest);
+    }
+
+    /**
+     * Drive with actual field-relative ChassisSpeeds (blue-origin coordinate system).
+     * Unlike setFieldSpeeds, this does NOT apply operator perspective.
+     * Used for COR-shifted SOTM driving.
+     */
+    public void driveFieldRelative(ChassisSpeeds fieldRelativeSpeeds) {
+        setControl(applyFieldSpeeds.withSpeeds(fieldRelativeSpeeds));
     }
 
     public DriverStation.Alliance getAlliance() {
