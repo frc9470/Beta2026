@@ -57,6 +57,7 @@ public class Intake extends SubsystemBase {
     private boolean agitating = false;
     private boolean needsHoming = true;
     private double homingStallStartTimestampSec = Double.NaN;
+    private double agitateStartTimeSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     // Cached SmartDashboard gain values (pivot Slot0)
@@ -103,6 +104,11 @@ public class Intake extends SubsystemBase {
 
     public void setAgitating(boolean agitating) {
         this.agitating = agitating;
+        if (agitating) {
+            agitateStartTimeSec = Timer.getFPGATimestamp();
+        } else {
+            agitateStartTimeSec = Double.NaN;
+        }
     }
 
 
@@ -134,7 +140,7 @@ public class Intake extends SubsystemBase {
     public Command getAgitateCommand() {
         return this.startEnd(
                 () -> setAgitating(true),
-                () -> setAgitating(false))
+                () -> { setAgitating(false); setDeployed(true); })
                 .withName("Intake Agitate");
     }
 
@@ -274,7 +280,19 @@ public class Intake extends SubsystemBase {
         if (deployHigh) {
             targetAngle = IntakeConstants.kDeployHighAngle;
         } else if (agitating) {
-            targetAngle = IntakeConstants.kDeployHighAngle;
+            double elapsed = Timer.getFPGATimestamp() - agitateStartTimeSec;
+            double period = 1.0 / IntakeConstants.kAgitateFrequencyHz;
+            double phase = (elapsed % period) / period; // 0.0 to 1.0
+            if (phase < 1.0 / 3.0) {
+                // Phase 1: half of middle angle
+                targetAngle = IntakeConstants.kAgitateMiddleAngle.div(2);
+            } else if (phase < 2.0 / 3.0) {
+                // Phase 2: back down to deploy
+                targetAngle = IntakeConstants.kDeployAngle;
+            } else {
+                // Phase 3: full middle angle
+                targetAngle = IntakeConstants.kAgitateMiddleAngle;
+            }
         } else if (deployed) {
             targetAngle = IntakeConstants.kDeployAngle;
         } else {
