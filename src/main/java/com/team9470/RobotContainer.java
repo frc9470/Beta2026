@@ -182,6 +182,12 @@ public class RobotContainer {
     // Left Bumper: Toggle intake deployed/retracted
     m_driverController.leftBumper().onTrue(m_superstructure.toggleIntakeCommand());
 
+    // Right Bumper: Stage a note normally, or run the full shooter characterization in
+    // Test mode.
+    nonTestModeTrigger(m_driverController.rightBumper()).onTrue(m_superstructure.stagePreloadCommand());
+    testModeTrigger(m_driverController.rightBumper()).onTrue(
+        createFullShooterCharacterizationCommand("Shooter Full Characterization"));
+
     // ==================== FACE BUTTONS ====================
 
     // X: X-lock wheels (defensive stance)
@@ -253,12 +259,6 @@ public class RobotContainer {
                   0.0,
                   false));
             }));
-
-    // D-pad Up: Stage a note normally, or run the full shooter characterization in
-    // Test mode.
-    nonTestModeTrigger(m_driverController.povUp()).onTrue(m_superstructure.stagePreloadCommand());
-    testModeTrigger(m_driverController.povUp()).onTrue(
-        createFullShooterCharacterizationCommand("Shooter Full Characterization"));
 
     // D-pad Left/Down/Right: Individual shooter characterization shortcuts in Test
     // mode.
