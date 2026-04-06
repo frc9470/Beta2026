@@ -725,6 +725,7 @@ public class Superstructure extends SubsystemBase {
         }, this, swerve).finallyDo(() -> {
             shooter.stop();
             hopper.stop();
+            intake.setShooting(false);
             publishReleaseBlockTelemetry(false, null);
             armedDuringInactiveThisHold.set(false);
             timedReleaseStartedThisHold.set(false);
@@ -733,6 +734,7 @@ public class Superstructure extends SubsystemBase {
             resetTimedShotState();
             swerve.setFieldSpeeds(0.0, 0.0, 0.0);
         }).beforeStarting(() -> {
+            intake.setShooting(true);
             armedDuringInactiveThisHold.set(matchTimingService.timingKnown() && !matchTimingService.zoneActive());
             timedReleaseStartedThisHold.set(false);
             resetAimSetpointDerivatives();
@@ -801,9 +803,12 @@ public class Superstructure extends SubsystemBase {
                     0.0,
                     result.rotationErrorRad(),
                     0.0);
-        }, this).finallyDo(() -> {
+        }, this).beforeStarting(() -> {
+            intake.setShooting(true);
+        }).finallyDo(() -> {
             shooter.stop();
             hopper.stop();
+            intake.setShooting(false);
             publishReleaseBlockTelemetry(false, null);
         })
                 .withName("Superstructure ShootNoAlign");

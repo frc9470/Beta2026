@@ -55,9 +55,11 @@ public class Intake extends SubsystemBase {
     private boolean deployed = false;
     private boolean deployHigh = false;
     private boolean agitating = false;
+    private boolean shooting = false;
     private boolean needsHoming = true;
     private double homingStallStartTimestampSec = Double.NaN;
     private double agitateStartTimeSec = Double.NaN;
+    private double shootStartTimeSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     // Cached SmartDashboard gain values (pivot Slot0)
@@ -111,7 +113,18 @@ public class Intake extends SubsystemBase {
         }
     }
 
-
+    /**
+     * Set the shooting state. When shooting, the intake will auto-agitate
+     * after {@link IntakeConstants#kShootAgitationDelaySec}.
+     */
+    public void setShooting(boolean shooting) {
+        this.shooting = shooting;
+        if (shooting) {
+            shootStartTimeSec = Timer.getFPGATimestamp();
+        } else {
+            shootStartTimeSec = Double.NaN;
+        }
+    }
 
     /**
      * Request intake pivot re-homing against its retract hardstop.
@@ -120,6 +133,8 @@ public class Intake extends SubsystemBase {
         deployed = false;
         deployHigh = false;
         agitating = false;
+        shooting = false;
+        shootStartTimeSec = Double.NaN;
         homingStallStartTimestampSec = Double.NaN;
         needsHoming = true;
     }
@@ -275,11 +290,24 @@ public class Intake extends SubsystemBase {
 
         // --- Normal operation ---
 
+        // Compute effective agitation: manual agitate OR auto-agitate from shooting after delay
+        boolean autoAgitateFromShooting = shooting
+                && !Double.isNaN(shootStartTimeSec)
+                && (Timer.getFPGATimestamp() - shootStartTimeSec) >= IntakeConstants.kShootAgitationDelaySec;
+        boolean effectivelyAgitating = agitating || autoAgitateFromShooting;
+
+        // If we just started effective agitation (from shooting), seed the oscillation timer
+        if (effectivelyAgitating && Double.isNaN(agitateStartTimeSec)) {
+            agitateStartTimeSec = Timer.getFPGATimestamp();
+        } else if (!effectivelyAgitating) {
+            agitateStartTimeSec = Double.NaN;
+        }
+
         // Pivot control
         Angle targetAngle;
         if (deployHigh) {
             targetAngle = IntakeConstants.kDeployHighAngle;
-        } else if (agitating) {
+        } else if (effectivelyAgitating) {
             double elapsed = Timer.getFPGATimestamp() - agitateStartTimeSec;
             double period = 1.0 / IntakeConstants.kAgitateFrequencyHz;
             double phase = (elapsed % period) / period; // 0.0 to 1.0
@@ -302,7 +330,7 @@ public class Intake extends SubsystemBase {
         pivot.setControl(mmRequest.withPosition(targetRot));
 
         // Roller control
-        double rollerVolts = (deployed || deployHigh || agitating) ? IntakeConstants.kRollerVoltage : 0.0;
+        double rollerVolts = (deployed || deployHigh || effectivelyAgitating) ? IntakeConstants.kRollerVoltage : 0.0;
         leftRoller.setControl(rollerVoltageRequest.withOutput(rollerVolts));
 
         // --- Telemetry ---
@@ -313,7 +341,7 @@ public class Intake extends SubsystemBase {
         double setpointRad = IntakeConstants.pivotMechanismRotationsToAngle(targetRot).in(Radians);
 
         int stateCode;
-        if (agitating) {
+        if (effectivelyAgitating) {
             stateCode = STATE_AGITATING;
         } else if (deployHigh) {
             stateCode = STATE_DEPLOYED_HIGH;

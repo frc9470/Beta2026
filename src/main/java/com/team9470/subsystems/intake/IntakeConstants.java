@@ -22,7 +22,7 @@ public class IntakeConstants {
     public static final boolean kUseLegacyAgitationOscillation = false;
     public static final double kAgitateCompressDurationSec = 1.25;
     public static final double kAgitateFrequencyHz = 1.0; // Legacy deploy/mid oscillation frequency
-    public static final double kShootAgitationDelaySec = 0.5;
+    public static final double kShootAgitationDelaySec = 1.5;
 
     // Simulation
     public static final double kIntakeLength = 0.3; // meters

@@ -6,10 +6,8 @@ import choreo.auto.AutoTrajectory;
 
 import com.team9470.subsystems.Superstructure;
 import com.team9470.subsystems.swerve.Swerve;
-import com.team9470.subsystems.intake.IntakeConstants;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.InstantCommand;
-import static edu.wpi.first.units.Units.Radians;
 
 public class Autos {
   private final AutoFactory m_autoFactory;
@@ -33,15 +31,9 @@ public class Autos {
     routine.active().onTrue(
         speed.resetOdometry()
             .andThen(speed.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
             .andThen(speed2.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3.5),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.5))
             .andThen(leftTrenchToCenter.cmd()));
 
     speed.atTime("IntakeDown")
@@ -58,15 +50,9 @@ public class Autos {
         rightTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(rightTrench.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
             .andThen(rightTrench2.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand()))));
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3)));
     return routine;
   }
 
@@ -80,15 +66,9 @@ public class Autos {
         rightTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(rightTrench.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
             .andThen(rightTrench2.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
             .andThen(rightTrench3.cmd()));
     return routine;
   }
@@ -103,15 +83,9 @@ public class Autos {
         leftTrench.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(leftTrench.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
             .andThen(leftTrench2.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3))
             .andThen(leftTrench3.cmd()));
     return routine;
   }
@@ -132,15 +106,9 @@ public class Autos {
         leftBump.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(leftBump.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(leftBump2.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(leftBump3.cmd()));
     return routine;
   }
@@ -155,20 +123,11 @@ public class Autos {
         leftBump.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(leftBump.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(leftBump2.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(leftBump3.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand()))));
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25)));
     return routine;
   }
 
@@ -182,15 +141,9 @@ public class Autos {
         rightBump.resetOdometry()
             .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
             .andThen(rightBump.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(rightBump2.cmd())
-            .andThen(Commands.deadline(
-                Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25),
-                Commands.waitSeconds(0.5)
-                    .andThen(Superstructure.getInstance().agitateIntakeCommand())))
+            .andThen(Superstructure.getInstance().aimAndShootCommand().withTimeout(3.25))
             .andThen(rightBump3.cmd()));
     return routine;
   }
