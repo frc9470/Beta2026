@@ -47,6 +47,9 @@ class SnapshotStructsTest {
                         false,
                         true,
                         true,
+                        true,
+                        true,
+                        false,
                         3,
                         0.5,
                         0.5,
@@ -56,6 +59,7 @@ class SnapshotStructsTest {
                         10.0,
                         9.0,
                         4.0,
+                        78.0,
                         80.0,
                         79.0,
                         1.0,
@@ -98,7 +102,7 @@ class SnapshotStructsTest {
 
     @Test
     void superstructureRoundTrip() {
-        assertRoundTrip(SuperstructureSnapshot.struct, new SuperstructureSnapshot(true, false, 2.5, 0.04));
+        assertRoundTrip(SuperstructureSnapshot.struct, new SuperstructureSnapshot(true, true, true, false, false, 2.5, 0.04));
     }
 
     @Test
@@ -118,7 +122,8 @@ class SnapshotStructsTest {
 
     @Test
     void autoAimRoundTrip() {
-        assertRoundTrip(AutoAimSolverSnapshot.struct, new AutoAimSolverSnapshot(1, true, 4.2, 6.1, true, 0.4, 52.0));
+        assertRoundTrip(AutoAimSolverSnapshot.struct,
+                new AutoAimSolverSnapshot(1, true, 4.2, 6.1, 5.8, 0.37, true, 0.9, -0.15, 0.4, 52.0, 1.8, 0.6));
     }
 
     @Test
@@ -128,7 +133,8 @@ class SnapshotStructsTest {
 
     @Test
     void timedShotRoundTrip() {
-        assertRoundTrip(TimedShotSnapshot.struct, new TimedShotSnapshot(true, true, false, true, false, 1.25, 0.42, false, 2, false));
+        assertRoundTrip(TimedShotSnapshot.struct,
+                new TimedShotSnapshot(true, true, false, true, false, true, false, 1.25, 0.42, false, 2, false));
     }
 
     @Test

@@ -9,8 +9,14 @@ public record AutoAimSolverSnapshot(
         boolean feedModeActive,
         double robotXBlueMeters,
         double distanceMeters,
+        double distanceNoLookaheadMeters,
+        double naiveAirTimeSec,
         boolean valid,
+        double targetYawRad,
+        double targetOmegaRadPerSec,
         double hoodCommandRad,
-        double flywheelRps) implements StructSerializable {
+        double flywheelRps,
+        double shooterFieldSpeedMps,
+        double shooterFieldAccelMps2) implements StructSerializable {
     public static final Struct<AutoAimSolverSnapshot> struct = StructGenerator.genRecord(AutoAimSolverSnapshot.class);
 }

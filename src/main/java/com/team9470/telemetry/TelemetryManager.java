@@ -19,6 +19,7 @@ import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
@@ -107,8 +108,13 @@ public final class TelemetryManager {
     private final NetworkTable shooterTable = telemetryTable.getSubTable("Shooter");
     private final StructPublisher<ShooterSnapshot> shooterStatePublisher = shooterTable
             .getStructTopic("State", ShooterSnapshot.struct).publish();
-    private final StructPublisher<AutoAimSolverSnapshot> shooterSolverPublisher = shooterTable
-            .getStructTopic("Solver/State", AutoAimSolverSnapshot.struct).publish();
+    private final StringPublisher shooterStateLabelPublisher = shooterTable.getStringTopic("StateLabel").publish();
+    private final NetworkTable shooterSolverTable = shooterTable.getSubTable("Solver");
+    private final AutoAimSolverPublishers shooterSolverPublishers = createAutoAimSolverPublishers(shooterSolverTable);
+    private final AutoAimSolverPublishers shooterSolverNonSotmPublishers = createAutoAimSolverPublishers(
+            shooterSolverTable.getSubTable("NonSOTM"));
+    private final AutoAimSolverPublishers shooterSolverSotmPublishers = createAutoAimSolverPublishers(
+            shooterSolverTable.getSubTable("SOTM"));
     private final NetworkTable shooterCharacterizationTable = shooterTable.getSubTable("Characterization");
     private final StructPublisher<ShooterCharacterizationSnapshot> shooterCharacterizationPublisher = shooterCharacterizationTable
             .getStructTopic("State", ShooterCharacterizationSnapshot.struct).publish();
@@ -188,8 +194,10 @@ public final class TelemetryManager {
             "Drive/AutoAimTransLimitMps", "m/s");
     private final StructPublisher<YShotSnapshot> yShotPublisher = controlsTable.getStructTopic("YShot/State", YShotSnapshot.struct)
             .publish();
-    private final StructPublisher<TimedShotSnapshot> timedShotPublisher = controlsTable
-            .getStructTopic("TimedShot/State", TimedShotSnapshot.struct).publish();
+    private final NetworkTable timedShotTable = controlsTable.getSubTable("TimedShot");
+    private final StructPublisher<TimedShotSnapshot> timedShotPublisher = timedShotTable
+            .getStructTopic("State", TimedShotSnapshot.struct).publish();
+    private final StringPublisher timedShotReasonLabelPublisher = timedShotTable.getStringTopic("ReasonLabel").publish();
 
     private final NetworkTable practiceTimerTable = telemetryTable.getSubTable("PracticeTimer");
     private final StructPublisher<PracticeTimerSnapshot> practiceTimerStatePublisher = practiceTimerTable
@@ -294,12 +302,33 @@ public final class TelemetryManager {
         intakeRightRollerStatorCurrentPublisher.set(snapshot.rightRollerStatorCurrentAmps());
     }
 
-    public void publishShooterState(ShooterSnapshot snapshot) {
+    public void publishShooterState(ShooterSnapshot snapshot, String stateLabel) {
         shooterStatePublisher.set(snapshot);
+        shooterStateLabelPublisher.set(stateLabel);
     }
 
-    public void publishAutoAimSolver(AutoAimSolverSnapshot snapshot) {
-        shooterSolverPublisher.set(snapshot);
+    public void publishAutoAimSolver(AutoAimSolverSnapshot snapshot, String modeLabel) {
+        publishAutoAimSolver(shooterSolverPublishers, snapshot, modeLabel);
+    }
+
+    public void publishAutoAimSolverGeometry(Translation3d fieldTarget, Translation2d lookaheadTarget) {
+        publishAutoAimSolverGeometry(shooterSolverPublishers, fieldTarget, lookaheadTarget);
+    }
+
+    public void publishAutoAimNonSotmSolver(AutoAimSolverSnapshot snapshot, String modeLabel) {
+        publishAutoAimSolver(shooterSolverNonSotmPublishers, snapshot, modeLabel);
+    }
+
+    public void publishAutoAimNonSotmGeometry(Translation3d fieldTarget, Translation2d lookaheadTarget) {
+        publishAutoAimSolverGeometry(shooterSolverNonSotmPublishers, fieldTarget, lookaheadTarget);
+    }
+
+    public void publishAutoAimSotmSolver(AutoAimSolverSnapshot snapshot, String modeLabel) {
+        publishAutoAimSolver(shooterSolverSotmPublishers, snapshot, modeLabel);
+    }
+
+    public void publishAutoAimSotmGeometry(Translation3d fieldTarget, Translation2d lookaheadTarget) {
+        publishAutoAimSolverGeometry(shooterSolverSotmPublishers, fieldTarget, lookaheadTarget);
     }
 
     public void publishShooterCharacterization(ShooterCharacterizationSnapshot snapshot) {
@@ -417,8 +446,9 @@ public final class TelemetryManager {
         yShotPublisher.set(snapshot);
     }
 
-    public void publishTimedShotState(TimedShotSnapshot snapshot) {
+    public void publishTimedShotState(TimedShotSnapshot snapshot, String reasonLabel) {
         timedShotPublisher.set(snapshot);
+        timedShotReasonLabelPublisher.set(reasonLabel);
     }
 
     public void publishPracticeTimerState(PracticeTimerSnapshot snapshot, String phaseLabel, String zoneLabel) {
@@ -464,8 +494,29 @@ public final class TelemetryManager {
         publisher.set(poses);
     }
 
+    private void publishAutoAimSolver(AutoAimSolverPublishers publishers, AutoAimSolverSnapshot snapshot, String modeLabel) {
+        publishers.statePublisher.set(snapshot);
+        publishers.modeLabelPublisher.set(modeLabel);
+    }
+
+    private void publishAutoAimSolverGeometry(
+            AutoAimSolverPublishers publishers,
+            Translation3d fieldTarget,
+            Translation2d lookaheadTarget) {
+        publishers.fieldTargetPublisher.set(fieldTarget);
+        publishers.lookaheadTargetPublisher.set(lookaheadTarget);
+    }
+
     private VisionCameraPublishers getVisionCameraPublishers(String cameraName) {
         return visionCameraPublishers.computeIfAbsent(cameraName, this::createVisionCameraPublishers);
+    }
+
+    private AutoAimSolverPublishers createAutoAimSolverPublishers(NetworkTable table) {
+        return new AutoAimSolverPublishers(
+                table.getStructTopic("State", AutoAimSolverSnapshot.struct).publish(),
+                table.getStringTopic("ModeLabel").publish(),
+                table.getStructTopic("FieldTarget", Translation3d.struct).publish(),
+                table.getStructTopic("LookaheadTarget", Translation2d.struct).publish());
     }
 
     private VisionCameraPublishers createVisionCameraPublishers(String cameraName) {
@@ -476,6 +527,13 @@ public final class TelemetryManager {
                 cameraTable.getStructTopic("CameraPose", Pose3d.struct).publish(),
                 cameraTable.getStructTopic("RobotPose", Pose3d.struct).publish(),
                 cameraTable.getStructTopic("RelevantPoseEstimate", Pose2d.struct).publish());
+    }
+
+    private record AutoAimSolverPublishers(
+            StructPublisher<AutoAimSolverSnapshot> statePublisher,
+            StringPublisher modeLabelPublisher,
+            StructPublisher<Translation3d> fieldTargetPublisher,
+            StructPublisher<Translation2d> lookaheadTargetPublisher) {
     }
 
     private record VisionCameraPublishers(

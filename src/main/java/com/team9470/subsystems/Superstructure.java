@@ -496,21 +496,24 @@ public class Superstructure extends SubsystemBase {
             if (shooterAtSetpoint) {
                 shooterReadyLatched.set(true);
             }
+            boolean shotValid = result.solution().isValid();
+            boolean sotmFireSafe = isSotmFireSafe(result.solution(), robotSpeeds);
             boolean canFire = result.isAligned()
-                    && result.solution().isValid()
+                    && shotValid
                     && shooterAtSetpoint
-                    && isSotmFireSafe(result.solution(), robotSpeeds);
+                    && sotmFireSafe;
             boolean shotIsFeedMode = AutoAim.isFeedModeActive(robotPose);
+            boolean topSensorBlocked = hopper.isTopBeamBreakBlocked();
             var timedFireDecision = TimedFirePolicy.evaluate(
                     true,
                     matchTimingService.timingKnown(),
                     matchTimingService.zoneActive(),
                     matchTimingService.zoneRemainingSec(),
                     armedDuringInactiveThisHold.get(),
-                    hopper.isTopBeamBreakBlocked(),
+                    topSensorBlocked,
                     shooterAtSetpoint,
                     result.isAligned(),
-                    result.solution().isValid(),
+                    shotValid,
                     shotIsFeedMode,
                     result.solution());
             if (timedFireDecision.allowFeed()) {
@@ -550,7 +553,10 @@ public class Superstructure extends SubsystemBase {
             publishTelemetry(
                     true,
                     result.isAligned(),
-                    shooterShouldFire,
+                    shotValid,
+                    sotmFireSafe,
+                    canFire,
+                    releaseAllowed,
                     result.rotationCommand(),
                     result.rotationErrorRad(),
                     limitedTranslation.getNorm());
@@ -560,11 +566,14 @@ public class Superstructure extends SubsystemBase {
                     timedReleaseStartedThisHold.get(),
                     matchTimingService.timingKnown(),
                     matchTimingService.zoneActive(),
+                    topSensorBlocked,
+                    timedFireDecision.releaseWindowOpen(),
                     matchTimingService.zoneRemainingSec(),
                     timedFireDecision.launchLeadSec(),
                     timedFireDecision.allowFeed(),
                     timedFireDecision.reasonCode(),
-                    shotIsFeedMode));
+                    shotIsFeedMode),
+                    TimedFirePolicy.reasonLabel(timedFireDecision.reasonCode()));
 
         }, this, swerve).finallyDo(() -> {
             shooter.stop();
@@ -602,12 +611,23 @@ public class Superstructure extends SubsystemBase {
             if (shooterAtSetpoint) {
                 shooterReadyLatched.set(true);
             }
-            boolean canFire = result.solution().isValid() && shooterAtSetpoint;
+            boolean shotValid = result.solution().isValid();
+            boolean sotmFireSafe = isSotmFireSafe(result.solution(), speedsSupplier.get());
+            boolean canFire = shotValid && shooterAtSetpoint;
 
             shooter.setFiring(canFire);
             hopper.setRunning(shooterReadyLatched.get());
 
-            publishTelemetry(false, false, canFire, 0.0, 0.0, 0.0);
+            publishTelemetry(
+                    false,
+                    result.isAligned(),
+                    shotValid,
+                    sotmFireSafe,
+                    canFire,
+                    canFire,
+                    0.0,
+                    result.rotationErrorRad(),
+                    0.0);
         }, this).finallyDo(() -> {
             shooter.stop();
             hopper.stop();
@@ -651,21 +671,34 @@ public class Superstructure extends SubsystemBase {
                 false,
                 false,
                 false,
+                false,
+                false,
                 0.0,
                 0.0,
                 false,
                 TimedFirePolicy.REASON_NOT_REQUESTED,
-                false));
+                false),
+                TimedFirePolicy.reasonLabel(TimedFirePolicy.REASON_NOT_REQUESTED));
     }
 
     private void publishTelemetry(
             boolean autoAimActive,
             boolean isAligned,
+            boolean shotValid,
+            boolean sotmFireSafe,
             boolean canFire,
+            boolean releaseAllowed,
             double rotCmd,
             double rotErrorRad,
             double transLimitMps) {
         telemetry.publishDriveAutoAim(autoAimActive, rotCmd, transLimitMps);
-        telemetry.publishSuperstructureState(new SuperstructureSnapshot(isAligned, canFire, rotCmd, rotErrorRad));
+        telemetry.publishSuperstructureState(new SuperstructureSnapshot(
+                isAligned,
+                shotValid,
+                sotmFireSafe,
+                canFire,
+                releaseAllowed,
+                rotCmd,
+                rotErrorRad));
     }
 }

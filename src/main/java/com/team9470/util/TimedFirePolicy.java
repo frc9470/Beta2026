@@ -33,37 +33,59 @@ public final class TimedFirePolicy {
             AutoAim.ShootingSolution solution) {
         double naiveAirTimeSec = solution == null ? 0.0 : Math.max(0.0, solution.naiveAirTimeSec());
         double launchLeadSec = naiveAirTimeSec + kFeederTransitSec + kHubProcessingDelaySec + kReleaseMarginSec;
+        boolean releaseWindowOpen = timingKnown && (zoneActive || zoneRemainingSec <= launchLeadSec);
 
         if (!driverWantsShoot) {
-            return new TimedFireDecision(false, false, false, false, launchLeadSec, REASON_NOT_REQUESTED);
+            return new TimedFireDecision(false, false, false, false, releaseWindowOpen, launchLeadSec, REASON_NOT_REQUESTED);
         }
         if (shotIsFeedMode) {
-            return new TimedFireDecision(false, true, false, buttonPressedDuringInactiveThisHold, launchLeadSec, REASON_FEED_MODE);
+            return new TimedFireDecision(
+                    false,
+                    true,
+                    false,
+                    buttonPressedDuringInactiveThisHold,
+                    releaseWindowOpen,
+                    launchLeadSec,
+                    REASON_FEED_MODE);
         }
         if (!buttonPressedDuringInactiveThisHold) {
-            return new TimedFireDecision(false, true, false, false, launchLeadSec, REASON_NORMAL_IMMEDIATE);
+            return new TimedFireDecision(false, true, false, false, releaseWindowOpen, launchLeadSec, REASON_NORMAL_IMMEDIATE);
         }
         if (!timingKnown) {
-            return new TimedFireDecision(true, true, false, true, launchLeadSec, REASON_TIMING_UNKNOWN);
+            return new TimedFireDecision(true, true, false, true, false, launchLeadSec, REASON_TIMING_UNKNOWN);
         }
         if (!shotIsValid) {
-            return new TimedFireDecision(true, true, false, true, launchLeadSec, REASON_SHOT_INVALID);
+            return new TimedFireDecision(true, true, false, true, releaseWindowOpen, launchLeadSec, REASON_SHOT_INVALID);
         }
         if (!topBeamBreakBlocked) {
-            return new TimedFireDecision(true, true, false, true, launchLeadSec, REASON_TOP_SENSOR_CLEAR);
+            return new TimedFireDecision(true, true, false, true, releaseWindowOpen, launchLeadSec, REASON_TOP_SENSOR_CLEAR);
         }
-
-        boolean releaseWindowOpen = zoneActive || zoneRemainingSec <= launchLeadSec;
         if (!releaseWindowOpen) {
-            return new TimedFireDecision(true, true, false, true, launchLeadSec, REASON_WAITING_FOR_WINDOW);
+            return new TimedFireDecision(true, true, false, true, false, launchLeadSec, REASON_WAITING_FOR_WINDOW);
         }
         if (!shooterAtSetpoint) {
-            return new TimedFireDecision(true, true, false, true, launchLeadSec, REASON_SHOOTER_NOT_READY);
+            return new TimedFireDecision(true, true, false, true, releaseWindowOpen, launchLeadSec, REASON_SHOOTER_NOT_READY);
         }
         if (!aligned) {
-            return new TimedFireDecision(true, true, false, true, launchLeadSec, REASON_NOT_ALIGNED);
+            return new TimedFireDecision(true, true, false, true, releaseWindowOpen, launchLeadSec, REASON_NOT_ALIGNED);
         }
-        return new TimedFireDecision(true, true, true, true, launchLeadSec, REASON_RELEASE_ALLOWED);
+        return new TimedFireDecision(true, true, true, true, releaseWindowOpen, launchLeadSec, REASON_RELEASE_ALLOWED);
+    }
+
+    public static String reasonLabel(int reasonCode) {
+        return switch (reasonCode) {
+            case REASON_NOT_REQUESTED -> "NotRequested";
+            case REASON_NORMAL_IMMEDIATE -> "NormalImmediate";
+            case REASON_WAITING_FOR_WINDOW -> "WaitingForWindow";
+            case REASON_TIMING_UNKNOWN -> "TimingUnknown";
+            case REASON_TOP_SENSOR_CLEAR -> "TopSensorClear";
+            case REASON_SHOOTER_NOT_READY -> "ShooterNotReady";
+            case REASON_NOT_ALIGNED -> "NotAligned";
+            case REASON_SHOT_INVALID -> "ShotInvalid";
+            case REASON_FEED_MODE -> "FeedMode";
+            case REASON_RELEASE_ALLOWED -> "ReleaseAllowed";
+            default -> "Unknown";
+        };
     }
 
     public record TimedFireDecision(
@@ -71,6 +93,7 @@ public final class TimedFirePolicy {
             boolean spinShooter,
             boolean allowFeed,
             boolean armedThisHold,
+            boolean releaseWindowOpen,
             double launchLeadSec,
             int reasonCode) {
     }

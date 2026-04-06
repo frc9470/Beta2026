@@ -29,10 +29,22 @@ class AutoAimTest {
     }
 
     @Test
-    void strafingLeftShiftsYawClockwiseAndOmegaNegative() {
+    void nonSotmStaysStaticUnderStrafe() {
         Pose2d pose = hubAlignedPose();
-        var stationary = AutoAim.calculate(pose, new ChassisSpeeds());
-        var moving = AutoAim.calculate(pose, new ChassisSpeeds(0.0, 1.0, 0.0));
+        var stationary = AutoAim.calculateNonSotm(pose);
+        var moving = AutoAim.calculateNonSotm(pose);
+
+        assertTrue(stationary.isValid());
+        assertTrue(moving.isValid());
+        assertEquals(stationary.targetRobotYaw().getRadians(), moving.targetRobotYaw().getRadians(), 1e-9);
+        assertEquals(0.0, moving.targetOmega(), 1e-9);
+    }
+
+    @Test
+    void sotmStrafingLeftShiftsYawClockwiseAndOmegaNegative() {
+        Pose2d pose = hubAlignedPose();
+        var stationary = AutoAim.calculateSotm(pose, new ChassisSpeeds());
+        var moving = AutoAim.calculateSotm(pose, new ChassisSpeeds(0.0, 1.0, 0.0));
 
         assertTrue(moving.isValid());
         assertTrue(
