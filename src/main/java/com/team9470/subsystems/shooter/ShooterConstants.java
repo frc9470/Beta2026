@@ -67,14 +67,14 @@ public class ShooterConstants {
 
         static {
                 // Flywheel Config
-                kFlywheelConfig.Slot0.kP = .2;
+                kFlywheelConfig.Slot0.kP = .3;
                 kFlywheelConfig.Slot0.kI = 0.0;
                 kFlywheelConfig.Slot0.kD = 0.01;
                 // Velocity loop is in mechanism units (SensorToMechanismRatio is set),
                 // so kV must be volts per mechanism RPS (not motor RPS).
                 // With 3:2 motor:wheel ratio and ~6000 RPM motor free speed:
                 // mechanism free speed ~= 100 / 1.5 = 66.7 RPS -> kV ~= 12 / 66.7 = 0.18.
-                kFlywheelConfig.Slot0.kV = 0.18;
+                kFlywheelConfig.Slot0.kV = 0.171;
                 kFlywheelConfig.Slot0.kS = 0.0;
                 kFlywheelConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
                 kFlywheelConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
@@ -84,10 +84,10 @@ public class ShooterConstants {
                                 .withStatorCurrentLimitEnable(true);
 
                 // Flywheel Inverted Config (motors 3 & 4)
-                kFlywheelInvertedConfig.Slot0.kP = .2;
+                kFlywheelInvertedConfig.Slot0.kP = .3;
                 kFlywheelInvertedConfig.Slot0.kI = 0.0;
                 kFlywheelInvertedConfig.Slot0.kD = 0.01;
-                kFlywheelInvertedConfig.Slot0.kV = 0.18;
+                kFlywheelInvertedConfig.Slot0.kV = 0.171;
                 kFlywheelInvertedConfig.Slot0.kS = 0.0;
                 kFlywheelInvertedConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
                 kFlywheelInvertedConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
