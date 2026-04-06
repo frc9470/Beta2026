@@ -23,4 +23,16 @@ class SuperstructureTest {
         assertFalse(Superstructure.shouldAllowRelease(true, true, false, true));
         assertTrue(Superstructure.shouldAllowRelease(true, true, true, false));
     }
+
+    @Test
+    void flywheelLatchDoesNotRelaxFirstShot() {
+        assertFalse(Superstructure.shouldTreatFlywheelAsReady(false, false, true));
+        assertTrue(Superstructure.shouldTreatFlywheelAsReady(true, false, false));
+    }
+
+    @Test
+    void flywheelLatchKeepsReleaseReadyAfterShotStarts() {
+        assertTrue(Superstructure.shouldTreatFlywheelAsReady(false, true, true));
+        assertFalse(Superstructure.shouldTreatFlywheelAsReady(false, true, false));
+    }
 }
