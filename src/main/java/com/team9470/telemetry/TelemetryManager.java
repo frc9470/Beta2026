@@ -6,6 +6,7 @@ import com.team9470.telemetry.structs.HopperSnapshot;
 import com.team9470.telemetry.structs.HopperPreloadSnapshot;
 import com.team9470.telemetry.structs.IntakeSnapshot;
 import com.team9470.telemetry.structs.PracticeTimerSnapshot;
+import com.team9470.telemetry.structs.ShotReleaseSnapshot;
 import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import com.team9470.telemetry.structs.ShooterSnapshot;
 import com.team9470.telemetry.structs.SimSnapshot;
@@ -171,6 +172,17 @@ public final class TelemetryManager {
     private final NetworkTable superstructureTable = telemetryTable.getSubTable("Superstructure");
     private final StructPublisher<SuperstructureSnapshot> superstructureStatePublisher = superstructureTable
             .getStructTopic("State", SuperstructureSnapshot.struct).publish();
+    private final BooleanPublisher superstructureReleaseBlockedPublisher = superstructureTable
+            .getBooleanTopic("ReleaseBlocked").publish();
+    private final StringPublisher superstructureReleaseBlockReasonPublisher = superstructureTable
+            .getStringTopic("ReleaseBlockReason").publish();
+    private final NetworkTable superstructureReleaseTable = superstructureTable.getSubTable("Release");
+    private final StructPublisher<ShotReleaseSnapshot> superstructureReleaseStatePublisher = superstructureReleaseTable
+            .getStructTopic("State", ShotReleaseSnapshot.struct).publish();
+    private final BooleanPublisher superstructureReleaseConditionBlockedPublisher = superstructureReleaseTable
+            .getBooleanTopic("Blocked").publish();
+    private final StringPublisher superstructureReleaseConditionBlockReasonPublisher = superstructureReleaseTable
+            .getStringTopic("BlockReason").publish();
 
     private final NetworkTable visionTable = telemetryTable.getSubTable("Vision");
     private final StructPublisher<VisionSnapshot> visionStatePublisher = visionTable
@@ -389,6 +401,17 @@ public final class TelemetryManager {
 
     public void publishSuperstructureState(SuperstructureSnapshot snapshot) {
         superstructureStatePublisher.set(snapshot);
+    }
+
+    public void publishSuperstructureReleaseState(ShotReleaseSnapshot snapshot) {
+        superstructureReleaseStatePublisher.set(snapshot);
+    }
+
+    public void publishSuperstructureReleaseBlock(boolean blocked, String reason) {
+        superstructureReleaseBlockedPublisher.set(blocked);
+        superstructureReleaseBlockReasonPublisher.set(reason);
+        superstructureReleaseConditionBlockedPublisher.set(blocked);
+        superstructureReleaseConditionBlockReasonPublisher.set(reason);
     }
 
     public void publishVisionState(VisionSnapshot snapshot) {

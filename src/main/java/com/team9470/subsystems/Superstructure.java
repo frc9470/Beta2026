@@ -7,6 +7,7 @@ import com.team9470.subsystems.shooter.Shooter;
 import com.team9470.telemetry.MatchTimingService;
 import com.team9470.telemetry.TelemetryManager;
 import com.team9470.telemetry.structs.HopperPreloadSnapshot;
+import com.team9470.telemetry.structs.ShotReleaseSnapshot;
 import com.team9470.telemetry.structs.SuperstructureSnapshot;
 import com.team9470.telemetry.structs.TimedShotSnapshot;
 import com.team9470.util.AutoAim;
@@ -56,7 +57,7 @@ public class Superstructure extends SubsystemBase {
     private static final double kControlLoopDtSec = 0.02;
     private static final double kAimKp = 12.0;
     private static final double kAimKd = 0.5;
-    private static final double kAimAlignmentToleranceRad = Math.toRadians(3.0);
+    private static final double kAimAlignmentToleranceRad = Math.toRadians(2.0);
     private static final double kAimMaxAngularRateRadPerSec = Math.toRadians(TunerConstants.maxAngularVelocity);
     private static final double kDriveAngleDerivativeFilterWindowSec = 1.5;
     private static final double kHoodDerivativeFilterWindowSec = 0.4;
@@ -89,6 +90,7 @@ public class Superstructure extends SubsystemBase {
     private Rotation2d lastTargetYaw = new Rotation2d();
     private double lastHoodCommandDeg = 0.0;
     private double lastFlywheelRpm = 0.0;
+    private String lastReleaseBlockReason = "NoBlockRecordedYet";
 
     private Superstructure() {
         shooter = new Shooter();
@@ -96,6 +98,7 @@ public class Superstructure extends SubsystemBase {
         hopper = Hopper.getInstance();
         publishPreloadState(false, PRELOAD_PHASE_IDLE, PRELOAD_FAULT_NONE);
         resetTimedShotState();
+        telemetry.publishSuperstructureReleaseBlock(false, lastReleaseBlockReason);
     }
 
     /**
@@ -320,6 +323,30 @@ public class Superstructure extends SubsystemBase {
             AutoAim.ShootingSolution solution) {
     }
 
+    private record ReleaseTelemetryInputs(
+            boolean canFire,
+            boolean releaseAllowed,
+            boolean shotValid,
+            boolean hoodAtSetpoint,
+            boolean flywheelAtSetpoint,
+            boolean aligned,
+            double rotationErrorRad,
+            boolean sotmFireSafe,
+            ChassisSpeeds robotSpeeds,
+            AutoAim.ShootingSolution solution,
+            boolean timedAutoArmCandidate,
+            boolean armedDuringInactiveThisHold,
+            boolean timedReleaseStarted,
+            boolean timingKnown,
+            boolean zoneActive,
+            boolean topSensorBlocked,
+            boolean releaseWindowOpen,
+            double zoneRemainingSec,
+            double launchLeadSec,
+            boolean timedReleaseAllowed,
+            boolean shotIsFeedMode) {
+    }
+
     private static LinearFilter createMovingAverageFilter(double windowSec) {
         int taps = Math.max(1, (int) Math.round(windowSec / kControlLoopDtSec));
         return LinearFilter.movingAverage(taps);
@@ -449,6 +476,106 @@ public class Superstructure extends SubsystemBase {
         return timedAllowFeed;
     }
 
+    private String describeShooterReadinessBlock(boolean hoodAtSetpoint, boolean flywheelAtSetpoint) {
+        if (!shooter.isHomed()) {
+            return "HoodNotHomed";
+        }
+        if (!hoodAtSetpoint && !flywheelAtSetpoint) {
+            return "HoodAndFlywheelNotReady";
+        }
+        if (!hoodAtSetpoint) {
+            return "HoodNotReady";
+        }
+        if (!flywheelAtSetpoint) {
+            return "FlywheelNotReady";
+        }
+        return "ShooterNotReady";
+    }
+
+    private String determineLiveReleaseBlockReason(
+            boolean shotValid,
+            boolean hoodAtSetpoint,
+            boolean flywheelAtSetpoint,
+            boolean aligned,
+            boolean sotmFireSafe) {
+        if (!shotValid) {
+            return "ShotInvalid";
+        }
+        if (!hoodAtSetpoint || !flywheelAtSetpoint) {
+            return describeShooterReadinessBlock(hoodAtSetpoint, flywheelAtSetpoint);
+        }
+        if (!aligned) {
+            return "NotAligned";
+        }
+        if (!sotmFireSafe) {
+            return "SotmUnsafe";
+        }
+        return "ReleaseAllowed";
+    }
+
+    private String determineReleaseBlockReason(
+            TimedFirePolicy.TimedFireDecision timedFireDecision,
+            boolean timedReleaseStartedThisHold,
+            boolean shotValid,
+            boolean hoodAtSetpoint,
+            boolean flywheelAtSetpoint,
+            boolean aligned,
+            boolean sotmFireSafe) {
+        if (!timedFireDecision.timedAutoArmCandidate() || timedReleaseStartedThisHold || timedFireDecision.allowFeed()) {
+            return determineLiveReleaseBlockReason(shotValid, hoodAtSetpoint, flywheelAtSetpoint, aligned, sotmFireSafe);
+        }
+        return switch (timedFireDecision.reasonCode()) {
+            case TimedFirePolicy.REASON_SHOOTER_NOT_READY ->
+                describeShooterReadinessBlock(hoodAtSetpoint, flywheelAtSetpoint);
+            case TimedFirePolicy.REASON_NOT_ALIGNED -> "NotAligned";
+            case TimedFirePolicy.REASON_SHOT_INVALID -> "ShotInvalid";
+            default -> TimedFirePolicy.reasonLabel(timedFireDecision.reasonCode());
+        };
+    }
+
+    private void publishReleaseBlockTelemetry(boolean blocked, String currentReason) {
+        if (blocked && currentReason != null && !currentReason.isBlank()) {
+            lastReleaseBlockReason = currentReason;
+        }
+        telemetry.publishSuperstructureReleaseBlock(blocked, lastReleaseBlockReason);
+    }
+
+    private void publishReleaseConditionTelemetry(ReleaseTelemetryInputs inputs) {
+        boolean sotmSafetyActive = inputs.solution().shooterFieldSpeedMps() >= kSotmFireSafetyMinSpeedMps;
+        telemetry.publishSuperstructureReleaseState(new ShotReleaseSnapshot(
+                inputs.canFire(),
+                inputs.releaseAllowed(),
+                inputs.shotValid(),
+                shooter.isHomed(),
+                inputs.hoodAtSetpoint(),
+                Math.toDegrees(shooter.getHoodErrorRad()),
+                Math.toDegrees(shooter.getHoodSetpointToleranceRad()),
+                inputs.flywheelAtSetpoint(),
+                shooter.getFlywheelErrorRps(),
+                shooter.getFlywheelSetpointToleranceRps(),
+                inputs.aligned(),
+                Math.toDegrees(inputs.rotationErrorRad()),
+                Math.toDegrees(kAimAlignmentToleranceRad),
+                inputs.sotmFireSafe(),
+                sotmSafetyActive,
+                inputs.solution().shooterFieldSpeedMps(),
+                inputs.solution().shooterFieldAccelMps2(),
+                kSotmMaxAccelerationForFireMps2,
+                Math.toDegrees(inputs.robotSpeeds().omegaRadiansPerSecond),
+                Math.toDegrees(kSotmMaxOmegaForFireRadPerSec),
+                inputs.timedAutoArmCandidate(),
+                inputs.armedDuringInactiveThisHold(),
+                inputs.timedReleaseStarted(),
+                inputs.timingKnown(),
+                inputs.zoneActive(),
+                inputs.topSensorBlocked(),
+                inputs.releaseWindowOpen(),
+                inputs.zoneRemainingSec(),
+                inputs.launchLeadSec(),
+                inputs.timedReleaseAllowed(),
+                inputs.shotIsFeedMode()));
+    }
+
     /**
      * Aim, rotate, and shoot — auto version (robot stationary, only rotates to
      * aim).
@@ -483,7 +610,6 @@ public class Superstructure extends SubsystemBase {
             Supplier<Double> vySupplier,
             boolean useRobotSideForFeedTarget) {
         Swerve swerve = Swerve.getInstance();
-        AtomicBoolean shooterReadyLatched = new AtomicBoolean(false);
         AtomicBoolean armedDuringInactiveThisHold = new AtomicBoolean(false);
         AtomicBoolean timedReleaseStartedThisHold = new AtomicBoolean(false);
         return Commands.run(() -> {
@@ -493,9 +619,8 @@ public class Superstructure extends SubsystemBase {
             shooter.setSetpoint(result.solution());
 
             boolean shooterAtSetpoint = shooter.isAtSetpoint();
-            if (shooterAtSetpoint) {
-                shooterReadyLatched.set(true);
-            }
+            boolean hoodAtSetpoint = shooter.isHoodAtSetpoint();
+            boolean flywheelAtSetpoint = shooter.isFlywheelAtSetpoint();
             boolean shotValid = result.solution().isValid();
             boolean sotmFireSafe = isSotmFireSafe(result.solution(), robotSpeeds);
             boolean canFire = result.isAligned()
@@ -530,18 +655,40 @@ public class Superstructure extends SubsystemBase {
                     timedReleaseStartedThisHold.get(),
                     canFire,
                     timedFireDecision.allowFeed());
-
-            boolean useNormalFeedPath = !timedFireDecision.timedAutoArmCandidate()
-                    || timedReleaseStartedThisHold.get();
-            boolean feederShouldRun = useNormalFeedPath
-                    ? shooterReadyLatched.get()
-                    : timedFireDecision.allowFeed();
-            boolean shooterShouldFire = useNormalFeedPath
-                    ? canFire
-                    : timedFireDecision.allowFeed();
-
-            shooter.setFiring(shooterShouldFire);
-            hopper.setRunning(feederShouldRun);
+            String releaseBlockReason = determineReleaseBlockReason(
+                    timedFireDecision,
+                    timedReleaseStartedThisHold.get(),
+                    shotValid,
+                    hoodAtSetpoint,
+                    flywheelAtSetpoint,
+                    result.isAligned(),
+                    sotmFireSafe);
+            // Continuous fuel should pause immediately when the live release gate drops.
+            shooter.setFiring(releaseAllowed);
+            hopper.setRunning(releaseAllowed);
+            publishReleaseBlockTelemetry(!releaseAllowed, releaseBlockReason);
+            publishReleaseConditionTelemetry(new ReleaseTelemetryInputs(
+                    canFire,
+                    releaseAllowed,
+                    shotValid,
+                    hoodAtSetpoint,
+                    flywheelAtSetpoint,
+                    result.isAligned(),
+                    result.rotationErrorRad(),
+                    sotmFireSafe,
+                    robotSpeeds,
+                    result.solution(),
+                    timedFireDecision.timedAutoArmCandidate(),
+                    armedDuringInactiveThisHold.get(),
+                    timedReleaseStartedThisHold.get(),
+                    matchTimingService.timingKnown(),
+                    matchTimingService.zoneActive(),
+                    topSensorBlocked,
+                    timedFireDecision.releaseWindowOpen(),
+                    matchTimingService.zoneRemainingSec(),
+                    timedFireDecision.launchLeadSec(),
+                    timedFireDecision.allowFeed(),
+                    shotIsFeedMode));
 
             // Drive field-relative through FieldCentric (handles operator perspective).
             swerve.setFieldSpeeds(
@@ -578,7 +725,7 @@ public class Superstructure extends SubsystemBase {
         }, this, swerve).finallyDo(() -> {
             shooter.stop();
             hopper.stop();
-            shooterReadyLatched.set(false);
+            publishReleaseBlockTelemetry(false, null);
             armedDuringInactiveThisHold.set(false);
             timedReleaseStartedThisHold.set(false);
             resetAimSetpointDerivatives();
@@ -586,7 +733,6 @@ public class Superstructure extends SubsystemBase {
             resetTimedShotState();
             swerve.setFieldSpeeds(0.0, 0.0, 0.0);
         }).beforeStarting(() -> {
-            shooterReadyLatched.set(false);
             armedDuringInactiveThisHold.set(matchTimingService.timingKnown() && !matchTimingService.zoneActive());
             timedReleaseStartedThisHold.set(false);
             resetAimSetpointDerivatives();
@@ -602,21 +748,48 @@ public class Superstructure extends SubsystemBase {
      * control.
      */
     public Command shootNoAlignCommand() {
-        AtomicBoolean shooterReadyLatched = new AtomicBoolean(false);
         return Commands.run(() -> {
             var result = getAimResult();
             shooter.setSetpoint(result.solution());
 
             boolean shooterAtSetpoint = shooter.isAtSetpoint();
-            if (shooterAtSetpoint) {
-                shooterReadyLatched.set(true);
-            }
+            boolean hoodAtSetpoint = shooter.isHoodAtSetpoint();
+            boolean flywheelAtSetpoint = shooter.isFlywheelAtSetpoint();
             boolean shotValid = result.solution().isValid();
             boolean sotmFireSafe = isSotmFireSafe(result.solution(), speedsSupplier.get());
             boolean canFire = shotValid && shooterAtSetpoint;
+            String releaseBlockReason = determineLiveReleaseBlockReason(
+                    shotValid,
+                    hoodAtSetpoint,
+                    flywheelAtSetpoint,
+                    true,
+                    sotmFireSafe);
 
             shooter.setFiring(canFire);
-            hopper.setRunning(shooterReadyLatched.get());
+            hopper.setRunning(canFire);
+            publishReleaseBlockTelemetry(!canFire, releaseBlockReason);
+            publishReleaseConditionTelemetry(new ReleaseTelemetryInputs(
+                    canFire,
+                    canFire,
+                    shotValid,
+                    hoodAtSetpoint,
+                    flywheelAtSetpoint,
+                    true,
+                    result.rotationErrorRad(),
+                    sotmFireSafe,
+                    speedsSupplier.get(),
+                    result.solution(),
+                    false,
+                    false,
+                    false,
+                    false,
+                    false,
+                    hopper.isTopBeamBreakBlocked(),
+                    false,
+                    0.0,
+                    0.0,
+                    false,
+                    AutoAim.isFeedModeActive(poseSupplier.get())));
 
             publishTelemetry(
                     false,
@@ -631,8 +804,8 @@ public class Superstructure extends SubsystemBase {
         }, this).finallyDo(() -> {
             shooter.stop();
             hopper.stop();
-            shooterReadyLatched.set(false);
-        }).beforeStarting(() -> shooterReadyLatched.set(false))
+            publishReleaseBlockTelemetry(false, null);
+        })
                 .withName("Superstructure ShootNoAlign");
     }
 

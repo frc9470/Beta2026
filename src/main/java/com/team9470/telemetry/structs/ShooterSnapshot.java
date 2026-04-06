@@ -10,7 +10,6 @@ public record ShooterSnapshot(
         boolean atSetpoint,
         boolean hoodAtSetpoint,
         boolean flywheelAtSetpoint,
-        boolean overrevActive,
         int stateCode,
         double hoodGoalRad,
         double hoodSetpointRad,

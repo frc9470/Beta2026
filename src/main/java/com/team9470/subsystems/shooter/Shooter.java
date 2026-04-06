@@ -46,11 +46,10 @@ import java.util.function.Supplier;
  * All physics simulation is handled by ProjectileSimulation.
  */
 public class Shooter extends SubsystemBase {
-    private static final double kFlywheelSetpointToleranceRPS = 0.7; // 42 RPM
-    private static final double kHoodSetpointToleranceRotations = 0.01; // ~3.6 degrees
+    private static final double kFlywheelSetpointToleranceRPS = 1.0; // 60 RPM
+    private static final double kHoodSetpointToleranceRotations =
+            ShooterConstants.launchRadToMechanismRotations(Math.toRadians(2.0));
     private static final double kRestingFlywheelRPS = 2000.0 / 60.0;
-    private static final double kOverrevOffsetRPS = 125.0 / 60.0; // +125 RPM
-    private static final double kOverrevRampSeconds = 0.75;
     private static final double kNonZeroSpeedEpsilonRPS = 1e-4;
     private static final double kCharacterizationMinBatteryVolts = 9.5;
     private static final double kCharacterizationMaxCurrentAmps = 240.0;
@@ -108,8 +107,6 @@ public class Shooter extends SubsystemBase {
     private double targetHoodAngleRotations = kMinHoodAngleRotations; // Launch angle (mechanism rotations)
     private boolean isFiring = false;
     private boolean needsHoming = true;
-    private boolean overrevActive = false;
-    private double overrevRampStartTimestampSec = Double.NEGATIVE_INFINITY;
     private ShooterCharacterizationSession characterizationSession;
     private ShooterCharacterizationCsvLogger characterizationLogger;
     private ShooterCharacterizationStatus characterizationStatus = ShooterCharacterizationStatus.idle();
@@ -189,15 +186,8 @@ public class Shooter extends SubsystemBase {
      */
     public void setSetpoint(ShootingSolution solution) {
         double requestedSpeedRPS = solution.flywheelRpm() / 60.0;
-        if (requestedSpeedRPS > kNonZeroSpeedEpsilonRPS && nominalTargetSpeedRPS <= kNonZeroSpeedEpsilonRPS) {
-            startOverrev();
-        } else if (requestedSpeedRPS <= kNonZeroSpeedEpsilonRPS) {
-            clearOverrev();
-        }
-
-        // Flywheel uses direct map RPM command.
         this.nominalTargetSpeedRPS = requestedSpeedRPS;
-        this.targetSpeedRPS = applyOverrev(requestedSpeedRPS);
+        this.targetSpeedRPS = requestedSpeedRPS;
 
         // Hood map uses commanded hood plane angle in degrees.
         double launchRad = Math.toRadians(solution.hoodCommandDeg());
@@ -209,7 +199,6 @@ public class Shooter extends SubsystemBase {
      * Set flywheel speed directly (RPS).
      */
     public void setFlywheelSpeed(double rps) {
-        clearOverrev();
         this.nominalTargetSpeedRPS = rps;
         this.targetSpeedRPS = rps;
     }
@@ -241,7 +230,6 @@ public class Shooter extends SubsystemBase {
         nominalTargetSpeedRPS = 0.0;
         targetHoodAngleRotations = kMinHoodAngleRotations;
         isFiring = false;
-        clearOverrev();
     }
 
     /**
@@ -254,23 +242,37 @@ public class Shooter extends SubsystemBase {
         targetHoodAngleRotations = kMinHoodAngleRotations;
         isFiring = false;
         needsHoming = true;
-        clearOverrev();
     }
 
     /**
      * Check if shooter is at setpoint (ready to fire).
      */
     public boolean isAtSetpoint() {
-        double currentRPS = getCurrentFlywheelRPS();
-        double rpsError = Math.abs(currentRPS - targetSpeedRPS);
+        return isFlywheelAtSetpoint() && isHoodAtSetpoint();
+    }
 
-        double currentHoodRot = getCurrentHoodRotations();
-        double hoodError = Math.abs(currentHoodRot - targetHoodAngleRotations);
+    public boolean isFlywheelAtSetpoint() {
+        return !needsHoming && Math.abs(getFlywheelErrorRps()) < kFlywheelSetpointToleranceRPS;
+    }
 
-        boolean flywheelReady = rpsError < kFlywheelSetpointToleranceRPS;
-        boolean hoodReady = hoodError < kHoodSetpointToleranceRotations;
+    public boolean isHoodAtSetpoint() {
+        return !needsHoming && Math.abs(getHoodErrorRad()) < getHoodSetpointToleranceRad();
+    }
 
-        return flywheelReady && hoodReady;
+    public double getFlywheelErrorRps() {
+        return targetSpeedRPS - getCurrentFlywheelRPS();
+    }
+
+    public double getFlywheelSetpointToleranceRps() {
+        return kFlywheelSetpointToleranceRPS;
+    }
+
+    public double getHoodErrorRad() {
+        return ShooterConstants.mechanismRotationsToLaunchRad(targetHoodAngleRotations - getCurrentHoodRotations());
+    }
+
+    public double getHoodSetpointToleranceRad() {
+        return ShooterConstants.mechanismRotationsToLaunchRad(kHoodSetpointToleranceRotations);
     }
 
     public double getCurrentFlywheelRPS() {
@@ -287,48 +289,6 @@ public class Shooter extends SubsystemBase {
             return ShooterConstants.launchRadToMechanismRotations(launchRad);
         }
         return hoodMotor.getPosition().getValueAsDouble();
-    }
-
-    private void startOverrev() {
-        overrevActive = true;
-        overrevRampStartTimestampSec = Double.NEGATIVE_INFINITY;
-    }
-
-    private void clearOverrev() {
-        overrevActive = false;
-        overrevRampStartTimestampSec = Double.NEGATIVE_INFINITY;
-    }
-
-    private double applyOverrev(double requestedSpeedRPS) {
-        if (requestedSpeedRPS <= kNonZeroSpeedEpsilonRPS) {
-            return 0.0;
-        }
-        if (!overrevActive) {
-            return requestedSpeedRPS;
-        }
-
-        double nowSec = Timer.getFPGATimestamp();
-
-        if (overrevRampStartTimestampSec == Double.NEGATIVE_INFINITY) {
-            double boostedTargetRPS = requestedSpeedRPS + kOverrevOffsetRPS;
-            double speedErrorRPS = Math.abs(getCurrentFlywheelRPS() - boostedTargetRPS);
-            if (speedErrorRPS < kFlywheelSetpointToleranceRPS) {
-                overrevRampStartTimestampSec = nowSec;
-            } else {
-                return boostedTargetRPS;
-            }
-        }
-
-        double elapsedSec = nowSec - overrevRampStartTimestampSec;
-        double rampProgress = Math.max(0.0, Math.min(1.0, elapsedSec / kOverrevRampSeconds));
-        double offsetRPS = kOverrevOffsetRPS * (1.0 - rampProgress);
-
-        if (rampProgress >= 1.0) {
-            clearOverrev();
-            return requestedSpeedRPS;
-        }
-
-        return requestedSpeedRPS + offsetRPS;
     }
 
     private double getClosedLoopFlywheelCommandRps() {
@@ -352,7 +312,6 @@ public class Shooter extends SubsystemBase {
             return;
         }
 
-        clearOverrev();
         isFiring = false;
         nominalTargetSpeedRPS = 0.0;
         targetSpeedRPS = 0.0;
@@ -542,7 +501,6 @@ public class Shooter extends SubsystemBase {
                 ? STATE_HOMING
                 : (isFiring ? STATE_FIRING : (commandedFlywheelRps > 0.0 ? STATE_SPINNING_UP : STATE_IDLE));
         double nominalFlywheelTargetRps = characterizationSession != null ? commandedFlywheelRps : nominalTargetSpeedRPS;
-        boolean overrevTelemetryActive = characterizationSession == null && overrevActive;
 
         telemetry.publishShooterState(new ShooterSnapshot(
                 needsHoming,
@@ -550,7 +508,6 @@ public class Shooter extends SubsystemBase {
                 atSetpoint,
                 hoodAtSetpoint,
                 flywheelAtSetpoint,
-                overrevTelemetryActive,
                 stateCode,
                 targetLaunchRad,
                 targetLaunchRad,

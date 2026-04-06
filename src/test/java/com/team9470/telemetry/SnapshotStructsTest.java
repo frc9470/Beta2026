@@ -8,6 +8,7 @@ import com.team9470.telemetry.structs.HopperPreloadSnapshot;
 import com.team9470.telemetry.structs.HopperSnapshot;
 import com.team9470.telemetry.structs.IntakeSnapshot;
 import com.team9470.telemetry.structs.PracticeTimerSnapshot;
+import com.team9470.telemetry.structs.ShotReleaseSnapshot;
 import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import com.team9470.telemetry.structs.ShooterSnapshot;
 import com.team9470.telemetry.structs.SimSnapshot;
@@ -49,7 +50,6 @@ class SnapshotStructsTest {
                         true,
                         true,
                         true,
-                        false,
                         3,
                         0.5,
                         0.5,
@@ -103,6 +103,42 @@ class SnapshotStructsTest {
     @Test
     void superstructureRoundTrip() {
         assertRoundTrip(SuperstructureSnapshot.struct, new SuperstructureSnapshot(true, true, true, false, false, 2.5, 0.04));
+    }
+
+    @Test
+    void shotReleaseRoundTrip() {
+        assertRoundTrip(ShotReleaseSnapshot.struct, new ShotReleaseSnapshot(
+                true,
+                false,
+                true,
+                true,
+                false,
+                -1.5,
+                2.0,
+                true,
+                0.8,
+                1.0,
+                false,
+                2.4,
+                2.0,
+                true,
+                true,
+                1.2,
+                0.8,
+                3.5,
+                45.0,
+                220.0,
+                true,
+                true,
+                false,
+                true,
+                false,
+                true,
+                false,
+                1.25,
+                0.42,
+                false,
+                false));
     }
 
     @Test
