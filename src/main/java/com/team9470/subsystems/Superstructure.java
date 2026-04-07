@@ -28,6 +28,7 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import static edu.wpi.first.units.Units.Meters;
@@ -208,12 +209,29 @@ public class Superstructure extends SubsystemBase {
     }
 
     public Command stagePreloadCommand() {
+        return stagePreloadCommand(true);
+    }
+
+    /**
+     * Auto-safe preload staging. This intentionally does not reserve the whole
+     * superstructure, because sequential auto groups reserve all future child
+     * requirements up front and would otherwise cancel themselves when this is
+     * triggered mid-path.
+     */
+    public Command stagePreloadAutoCommand() {
+        return stagePreloadCommand(false);
+    }
+
+    private Command stagePreloadCommand(boolean reserveSuperstructure) {
         final int[] phaseCode = { PRELOAD_PHASE_IDLE };
         final int[] faultCode = { PRELOAD_FAULT_NONE };
         final boolean[] finished = { false };
         final double[] commandStartSec = { Double.NaN };
         final double[] phaseStartSec = { Double.NaN };
         final double[] jamStartSec = { Double.NaN };
+        Subsystem[] requirements = reserveSuperstructure
+                ? new Subsystem[] { this, hopper }
+                : new Subsystem[] { hopper };
 
         return Commands.run(() -> {
             double nowSec = Timer.getFPGATimestamp();
@@ -261,7 +279,7 @@ public class Superstructure extends SubsystemBase {
                 }
             }
             publishPreloadState(true, phaseCode[0], faultCode[0]);
-        }, this, hopper).beforeStarting(() -> {
+        }, requirements).beforeStarting(() -> {
             double nowSec = Timer.getFPGATimestamp();
             finished[0] = false;
             faultCode[0] = PRELOAD_FAULT_NONE;

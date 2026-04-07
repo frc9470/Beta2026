@@ -30,6 +30,11 @@ public class Autos {
             .andThen(Superstructure.getInstance().agitateIntakeCommand()));
   }
 
+  private static void bindAutoStaging(AutoTrajectory trajectory) {
+    trajectory.atTime("staging")
+        .onTrue(Superstructure.getInstance().stagePreloadAutoCommand());
+  }
+
   public AutoRoutine doNothing() {
     AutoRoutine routine = m_autoFactory.newRoutine("DoNothing");
     routine.active().onTrue(Commands.none());
@@ -125,10 +130,8 @@ public class Autos {
             .andThen(aimShootWithAgitate(3.25))
             .andThen(leftBump3.cmd()));
 
-    leftBump.atTime("staging")
-        .onTrue(Superstructure.getInstance().stagePreloadCommand().asProxy());
-    leftBump2.atTime("staging")
-        .onTrue(Superstructure.getInstance().stagePreloadCommand().asProxy());
+    bindAutoStaging(leftBump);
+    bindAutoStaging(leftBump2);
 
     return routine;
   }
@@ -149,10 +152,8 @@ public class Autos {
             .andThen(leftBump3.cmd())
             .andThen(aimShootWithAgitate(3.25)));
 
-    leftBump.atTime("staging")
-        .onTrue(Superstructure.getInstance().stagePreloadCommand().asProxy());
-    leftBump2.atTime("staging")
-        .onTrue(Superstructure.getInstance().stagePreloadCommand().asProxy());
+    bindAutoStaging(leftBump);
+    bindAutoStaging(leftBump2);
     return routine;
   }
 
@@ -171,10 +172,8 @@ public class Autos {
             .andThen(aimShootWithAgitate(3.25))
             .andThen(rightBump3.cmd()));
 
-    rightBump.atTime("staging")
-        .onTrue(Superstructure.getInstance().stagePreloadCommand().asProxy());
-    rightBump2.atTime("staging")
-        .onTrue(Superstructure.getInstance().stagePreloadCommand().asProxy());
+    bindAutoStaging(rightBump);
+    bindAutoStaging(rightBump2);
     return routine;
   }
 }
