@@ -55,11 +55,9 @@ public class Intake extends SubsystemBase {
     private boolean deployed = false;
     private boolean deployHigh = false;
     private boolean agitating = false;
-    private boolean shooting = false;
     private boolean needsHoming = true;
     private double homingStallStartTimestampSec = Double.NaN;
     private double agitateStartTimeSec = Double.NaN;
-    private double shootStartTimeSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     // Cached SmartDashboard gain values (pivot Slot0)
@@ -114,27 +112,12 @@ public class Intake extends SubsystemBase {
     }
 
     /**
-     * Set the shooting state. When shooting, the intake will auto-agitate
-     * after {@link IntakeConstants#kShootAgitationDelaySec}.
-     */
-    public void setShooting(boolean shooting) {
-        this.shooting = shooting;
-        if (shooting) {
-            shootStartTimeSec = Timer.getFPGATimestamp();
-        } else {
-            shootStartTimeSec = Double.NaN;
-        }
-    }
-
-    /**
      * Request intake pivot re-homing against its retract hardstop.
      */
     public void requestHome() {
         deployed = false;
         deployHigh = false;
         agitating = false;
-        shooting = false;
-        shootStartTimeSec = Double.NaN;
         homingStallStartTimestampSec = Double.NaN;
         needsHoming = true;
     }
@@ -290,18 +273,7 @@ public class Intake extends SubsystemBase {
 
         // --- Normal operation ---
 
-        // Compute effective agitation: manual agitate OR auto-agitate from shooting after delay
-        boolean autoAgitateFromShooting = shooting
-                && !Double.isNaN(shootStartTimeSec)
-                && (Timer.getFPGATimestamp() - shootStartTimeSec) >= IntakeConstants.kShootAgitationDelaySec;
-        boolean effectivelyAgitating = agitating || autoAgitateFromShooting;
-
-        // If we just started effective agitation (from shooting), seed the oscillation timer
-        if (effectivelyAgitating && Double.isNaN(agitateStartTimeSec)) {
-            agitateStartTimeSec = Timer.getFPGATimestamp();
-        } else if (!effectivelyAgitating) {
-            agitateStartTimeSec = Double.NaN;
-        }
+        boolean effectivelyAgitating = agitating;
 
         // Pivot control
         Angle targetAngle;
