@@ -64,7 +64,7 @@ public class Superstructure extends SubsystemBase {
     private static final double kControlLoopDtSec = 0.02;
     private static final double kAimKp = 10.0;
     private static final double kAimKd = 0.7;
-    private static final double kAimAlignmentToleranceRad = Math.toRadians(4.0);
+    private static final double kAimAlignmentToleranceRad = Math.toRadians(5.0);
     private static final double kAimMaxAngularRateRadPerSec = Math.toRadians(TunerConstants.maxAngularVelocity);
     private static final double kDriveAngleDerivativeFilterWindowSec = 1.5;
     private static final double kHoodDerivativeFilterWindowSec = 0.4;
