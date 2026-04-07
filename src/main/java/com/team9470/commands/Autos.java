@@ -30,6 +30,26 @@ public class Autos {
             .andThen(Superstructure.getInstance().agitateIntakeCommand()));
   }
 
+  /**
+   * Wraps aimAndShootCommand with constant field-relative velocity (SOTM) and
+   * a 1-second delayed agitation running in parallel.
+   * Velocity is specified from the Blue-alliance perspective; the command
+   * automatically flips for Red alliance.
+   *
+   * @param vxMps      field-relative X velocity (m/s, Blue perspective)
+   * @param vyMps      field-relative Y velocity (m/s, Blue perspective)
+   * @param timeoutSec maximum time to spend shooting on the move
+   */
+  private static Command sotmShootWithAgitate(double vxMps, double vyMps, double timeoutSec) {
+    return Commands.deadline(
+        Superstructure.getInstance().aimAndShootCommand(
+            () -> vxMps,
+            () -> vyMps,
+            false).withTimeout(timeoutSec),
+        Commands.waitSeconds(kAutoAgitateDelaySec)
+            .andThen(Superstructure.getInstance().agitateIntakeCommand()));
+  }
+
   private static void bindAutoStaging(AutoTrajectory trajectory) {
     trajectory.atTime("staging")
         .onTrue(Superstructure.getInstance().stagePreloadAutoCommand());
@@ -154,6 +174,41 @@ public class Autos {
 
     bindAutoStaging(leftBump);
     bindAutoStaging(leftBump2);
+    return routine;
+  }
+
+  /**
+   * Left-bump auto with shoot-on-the-move after the first swipe.
+   * Instead of stopping to shoot after cycle 1, the robot fires while moving
+   * along the first leg of leftBumpCycle2_copy1 (point 1 -> point 2), then
+   * resumes the remainder of cycle 2 and keeps the later shot stationary.
+   */
+  public AutoRoutine newleftbump() {
+    AutoRoutine routine = m_autoFactory.newRoutine("newleftbump");
+    AutoTrajectory leftBump = routine.trajectory("leftBumpCycle1");
+    AutoTrajectory leftBump2 = routine.trajectory("leftBumpCycle2_copy1", 1);
+    AutoTrajectory leftBump3 = routine.trajectory("overLeftBump");
+
+    // SOTM velocity derived from leftBumpCycle2_copy1 point 1 -> point 2:
+    // (3.3, 5.5) -> (2.3820, 6.7893) over 0.69042 s.
+    // These are Blue-alliance field-relative coordinates and will be flipped
+    // automatically for Red by aimAndShootCommand.
+    final double sotmVxMps = -1.33;
+    final double sotmVyMps = 1.87;
+    final double sotmTimeoutSec = 0.69042;
+
+    routine.active().onTrue(
+        leftBump.resetOdometry()
+            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
+            .andThen(leftBump.cmd())
+            .andThen(sotmShootWithAgitate(sotmVxMps, sotmVyMps, sotmTimeoutSec))
+            .andThen(leftBump2.cmd())
+            .andThen(aimShootWithAgitate(3.25))
+            .andThen(leftBump3.cmd()));
+
+    bindAutoStaging(leftBump);
+    bindAutoStaging(leftBump2);
+
     return routine;
   }
 
