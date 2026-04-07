@@ -65,6 +65,7 @@ public class Superstructure extends SubsystemBase {
     private static final double kAimKp = 10.0;
     private static final double kAimKd = 0.7;
     private static final double kAimAlignmentToleranceRad = Math.toRadians(5.0);
+    private static final double kAimLatchedAlignmentToleranceRad = Math.toRadians(15.0);
     private static final double kAimMaxAngularRateRadPerSec = Math.toRadians(TunerConstants.maxAngularVelocity);
     private static final double kDriveAngleDerivativeFilterWindowSec = 1.5;
     private static final double kHoodDerivativeFilterWindowSec = 0.4;
@@ -362,6 +363,7 @@ public class Superstructure extends SubsystemBase {
             boolean flywheelAtSetpoint,
             boolean flywheelReadyForRelease,
             boolean aligned,
+            double alignmentToleranceRad,
             double rotationErrorRad,
             boolean sotmFireSafe,
             ChassisSpeeds robotSpeeds,
@@ -518,6 +520,16 @@ public class Superstructure extends SubsystemBase {
         return flywheelReadyLatchedThisHold;
     }
 
+    static boolean shouldTreatAlignmentAsReady(
+            boolean alignedAtTightTolerance,
+            boolean alignmentReadyLatchedThisHold,
+            double rotationErrorRad) {
+        if (alignedAtTightTolerance) {
+            return true;
+        }
+        return alignmentReadyLatchedThisHold && Math.abs(rotationErrorRad) < kAimLatchedAlignmentToleranceRad;
+    }
+
     private String describeShooterReadinessBlock(boolean hoodAtSetpoint, boolean flywheelAtSetpoint) {
         if (!shooter.isHomed()) {
             return "HoodNotHomed";
@@ -599,7 +611,7 @@ public class Superstructure extends SubsystemBase {
                 shooter.getFlywheelSetpointToleranceRps(),
                 inputs.aligned(),
                 Math.toDegrees(inputs.rotationErrorRad()),
-                Math.toDegrees(kAimAlignmentToleranceRad),
+                Math.toDegrees(inputs.alignmentToleranceRad()),
                 inputs.sotmFireSafe(),
                 sotmSafetyActive,
                 inputs.solution().shooterFieldSpeedMps(),
@@ -658,6 +670,7 @@ public class Superstructure extends SubsystemBase {
         AtomicBoolean timedReleaseStartedThisHold = new AtomicBoolean(false);
         AtomicBoolean releaseStartedThisHold = new AtomicBoolean(false);
         AtomicBoolean flywheelReadyLatchedThisHold = new AtomicBoolean(false);
+        AtomicBoolean alignmentReadyLatchedThisHold = new AtomicBoolean(false);
         return Commands.run(() -> {
             Pose2d robotPose = poseSupplier.get();
             ChassisSpeeds robotSpeeds = speedsSupplier.get();
@@ -673,10 +686,20 @@ public class Superstructure extends SubsystemBase {
                     flywheelAtSetpoint,
                     releaseStartedThisHold.get(),
                     flywheelReadyLatchedThisHold.get());
+            if (result.isAligned()) {
+                alignmentReadyLatchedThisHold.set(true);
+            }
+            boolean alignedForRelease = shouldTreatAlignmentAsReady(
+                    result.isAligned(),
+                    alignmentReadyLatchedThisHold.get(),
+                    result.rotationErrorRad());
+            double alignmentToleranceRad = alignmentReadyLatchedThisHold.get()
+                    ? kAimLatchedAlignmentToleranceRad
+                    : kAimAlignmentToleranceRad;
             boolean shooterReadyForRelease = hoodAtSetpoint && flywheelReadyForRelease;
             boolean shotValid = result.solution().isValid();
             boolean sotmFireSafe = isSotmFireSafe(result.solution(), robotSpeeds);
-            boolean canFire = result.isAligned()
+            boolean canFire = alignedForRelease
                     && shotValid
                     && shooterReadyForRelease
                     && sotmFireSafe;
@@ -690,7 +713,7 @@ public class Superstructure extends SubsystemBase {
                     armedDuringInactiveThisHold.get(),
                     topSensorBlocked,
                     shooterReadyForRelease,
-                    result.isAligned(),
+                    alignedForRelease,
                     shotValid,
                     shotIsFeedMode,
                     result.solution());
@@ -714,7 +737,7 @@ public class Superstructure extends SubsystemBase {
                     shotValid,
                     hoodAtSetpoint,
                     flywheelReadyForRelease,
-                    result.isAligned(),
+                    alignedForRelease,
                     sotmFireSafe);
             if (releaseAllowed) {
                 releaseStartedThisHold.set(true);
@@ -731,7 +754,8 @@ public class Superstructure extends SubsystemBase {
                     hoodAtSetpoint,
                     flywheelAtSetpoint,
                     flywheelReadyForRelease,
-                    result.isAligned(),
+                    alignedForRelease,
+                    alignmentToleranceRad,
                     result.rotationErrorRad(),
                     sotmFireSafe,
                     robotSpeeds,
@@ -785,7 +809,7 @@ public class Superstructure extends SubsystemBase {
             // Telemetry
             publishTelemetry(
                     true,
-                    result.isAligned(),
+                    alignedForRelease,
                     shotValid,
                     sotmFireSafe,
                     canFire,
@@ -816,6 +840,7 @@ public class Superstructure extends SubsystemBase {
             timedReleaseStartedThisHold.set(false);
             releaseStartedThisHold.set(false);
             flywheelReadyLatchedThisHold.set(false);
+            alignmentReadyLatchedThisHold.set(false);
             resetAimSetpointDerivatives();
             telemetry.publishDriveAutoAim(false, 0.0, 0.0);
             resetTimedShotState();
@@ -825,6 +850,7 @@ public class Superstructure extends SubsystemBase {
             timedReleaseStartedThisHold.set(false);
             releaseStartedThisHold.set(false);
             flywheelReadyLatchedThisHold.set(false);
+            alignmentReadyLatchedThisHold.set(false);
             resetAimSetpointDerivatives();
             telemetry.publishDriveAutoAim(false, 0.0, 0.0);
             resetTimedShotState();
@@ -878,6 +904,7 @@ public class Superstructure extends SubsystemBase {
                     flywheelAtSetpoint,
                     flywheelReadyForRelease,
                     true,
+                    kAimAlignmentToleranceRad,
                     result.rotationErrorRad(),
                     sotmFireSafe,
                     speedsSupplier.get(),

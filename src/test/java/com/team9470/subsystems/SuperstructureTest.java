@@ -35,4 +35,16 @@ class SuperstructureTest {
         assertTrue(Superstructure.shouldTreatFlywheelAsReady(false, true, true));
         assertFalse(Superstructure.shouldTreatFlywheelAsReady(false, true, false));
     }
+
+    @Test
+    void alignmentLatchRequiresInitialTightAcquire() {
+        assertFalse(Superstructure.shouldTreatAlignmentAsReady(false, false, Math.toRadians(10.0)));
+        assertTrue(Superstructure.shouldTreatAlignmentAsReady(true, false, Math.toRadians(0.0)));
+    }
+
+    @Test
+    void alignmentLatchAllowsWiderContinuousWindow() {
+        assertTrue(Superstructure.shouldTreatAlignmentAsReady(false, true, Math.toRadians(10.0)));
+        assertFalse(Superstructure.shouldTreatAlignmentAsReady(false, true, Math.toRadians(16.0)));
+    }
 }
