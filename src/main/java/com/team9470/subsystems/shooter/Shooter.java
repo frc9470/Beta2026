@@ -48,7 +48,7 @@ import java.util.function.Supplier;
 public class Shooter extends SubsystemBase {
     private static final double kFlywheelSetpointToleranceRPS = 1.0; // 60 RPM
     private static final double kHoodSetpointToleranceRotations =
-            ShooterConstants.launchRadToMechanismRotations(Math.toRadians(2.0));
+            ShooterConstants.launchRadToMechanismRotations(Math.toRadians(3.0));
     private static final double kRestingFlywheelRPS = 2000.0 / 60.0;
     private static final double kNonZeroSpeedEpsilonRPS = 1e-4;
     private static final double kCharacterizationMinBatteryVolts = 9.5;

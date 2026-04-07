@@ -97,7 +97,7 @@ public class ShooterConstants {
                                 .withStatorCurrentLimitEnable(true);
 
                 // Hood Config
-                kHoodConfig.Slot0.kP = 40.0;
+                kHoodConfig.Slot0.kP = 60.0;
                 kHoodConfig.Slot0.kI = 0.0;
                 kHoodConfig.Slot0.kD = 0.0;
                 kHoodConfig.Slot0.kV = 0.0;
