@@ -7,21 +7,16 @@ import org.junit.jupiter.api.Test;
 
 class SuperstructureTest {
     @Test
-    void normalReleaseRequiresLiveFirePermission() {
-        assertFalse(Superstructure.shouldAllowRelease(false, false, false, true));
-        assertTrue(Superstructure.shouldAllowRelease(false, false, true, false));
+    void releaseRequiresCanFire() {
+        assertFalse(Superstructure.shouldAllowRelease(false, false));
+        assertTrue(Superstructure.shouldAllowRelease(true, false));
     }
 
     @Test
-    void timedShotUsesWindowPermitBeforeReleaseStarts() {
-        assertFalse(Superstructure.shouldAllowRelease(true, false, false, false));
-        assertTrue(Superstructure.shouldAllowRelease(true, false, false, true));
-    }
-
-    @Test
-    void timedShotFallsBackToLiveFireChecksAfterReleaseStarts() {
-        assertFalse(Superstructure.shouldAllowRelease(true, true, false, true));
-        assertTrue(Superstructure.shouldAllowRelease(true, true, true, false));
+    void releaseStaysOnceStarted() {
+        // Even if canFire drops, release stays latched
+        assertTrue(Superstructure.shouldAllowRelease(false, true));
+        assertTrue(Superstructure.shouldAllowRelease(true, true));
     }
 
     @Test

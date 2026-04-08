@@ -47,14 +47,17 @@ import java.util.function.Supplier;
  */
 public class Shooter extends SubsystemBase {
     private static final double kFlywheelSetpointToleranceRPS = 1.0; // 60 RPM
-    private static final double kHoodSetpointToleranceRotations =
-            ShooterConstants.launchRadToMechanismRotations(Math.toRadians(3.0));
+    private static final double kHoodSetpointToleranceRotations = ShooterConstants
+            .launchRadToMechanismRotations(Math.toRadians(3.0));
     private static final double kRestingFlywheelRPS = 2000.0 / 60.0;
+    /** Boosted idle speed used around the active zone window. */
+    private static final double kBoostedIdleFlywheelRPS = 2550.0 / 60.0;
     private static final double kNonZeroSpeedEpsilonRPS = 1e-4;
     private static final double kCharacterizationMinBatteryVolts = 9.5;
     private static final double kCharacterizationMaxCurrentAmps = 240.0;
     private static final double kCharacterizationCurrentDebounceSec = 0.15;
-    private static final double kCharacterizationMaxFlywheelRpm = ShooterCharacterizationConfig.defaultMaxFlywheelRpm() + 250.0;
+    private static final double kCharacterizationMaxFlywheelRpm = ShooterCharacterizationConfig.defaultMaxFlywheelRpm()
+            + 250.0;
     private static final AtomicInteger kCharacterizationRunIds = new AtomicInteger(1);
 
     private static final double kMinHoodAngleRotations = ShooterConstants.launchRadToMechanismRotations(
@@ -107,6 +110,7 @@ public class Shooter extends SubsystemBase {
     private double targetHoodAngleRotations = kMinHoodAngleRotations; // Launch angle (mechanism rotations)
     private boolean isFiring = false;
     private boolean needsHoming = true;
+    private boolean activeIdleBoost = false;
     private ShooterCharacterizationSession characterizationSession;
     private ShooterCharacterizationCsvLogger characterizationLogger;
     private ShooterCharacterizationStatus characterizationStatus = ShooterCharacterizationStatus.idle();
@@ -295,7 +299,19 @@ public class Shooter extends SubsystemBase {
         if (needsHoming) {
             return 0.0;
         }
-        return targetSpeedRPS > kNonZeroSpeedEpsilonRPS ? targetSpeedRPS : kRestingFlywheelRPS;
+        if (targetSpeedRPS > kNonZeroSpeedEpsilonRPS) {
+            return targetSpeedRPS;
+        }
+        return activeIdleBoost ? kBoostedIdleFlywheelRPS : kRestingFlywheelRPS;
+    }
+
+    /**
+     * Enable / disable boosted idle speed.
+     * When boosted, the flywheel idles at shot-ready RPM instead of the
+     * normal resting speed, so spin-up time is near zero when shooting starts.
+     */
+    public void setActiveIdleBoost(boolean boost) {
+        this.activeIdleBoost = boost;
     }
 
     public void startCharacterization(ShooterCharacterizationConfig config, ShooterCharacterizationMode mode) {
@@ -435,8 +451,8 @@ public class Shooter extends SubsystemBase {
             } else if (totalFlywheelSupplyCurrent > kCharacterizationMaxCurrentAmps) {
                 if (!Double.isFinite(characterizationOverCurrentStartSec)) {
                     characterizationOverCurrentStartSec = Timer.getFPGATimestamp();
-                } else if (Timer.getFPGATimestamp() - characterizationOverCurrentStartSec
-                        >= kCharacterizationCurrentDebounceSec) {
+                } else if (Timer.getFPGATimestamp()
+                        - characterizationOverCurrentStartSec >= kCharacterizationCurrentDebounceSec) {
                     characterizationSession.abort("Flywheel current exceeded threshold");
                 }
             } else if ((currentRPS * 60.0) > kCharacterizationMaxFlywheelRpm) {
@@ -451,10 +467,12 @@ public class Shooter extends SubsystemBase {
                     currentHoodRot,
                     characterizationStatus.commandedRpm() / 60.0,
                     kMinHoodAngleRotations);
-            characterizationSample = characterizationSession.update(Timer.getFPGATimestamp(), atCurrentCharacterizationSetpoint);
+            characterizationSample = characterizationSession.update(Timer.getFPGATimestamp(),
+                    atCurrentCharacterizationSetpoint);
             commandedFlywheelRps = characterizationSample.commandedRpm() / 60.0;
             commandedFlywheelVolts = characterizationSample.commandedVolts();
-            characterizationOpenLoop = characterizationSample.mode() == ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP;
+            characterizationOpenLoop = characterizationSample
+                    .mode() == ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP;
         }
 
         // === Flywheel control (always runs, independent of homing) ===
@@ -500,7 +518,8 @@ public class Shooter extends SubsystemBase {
         int stateCode = needsHoming
                 ? STATE_HOMING
                 : (isFiring ? STATE_FIRING : (commandedFlywheelRps > 0.0 ? STATE_SPINNING_UP : STATE_IDLE));
-        double nominalFlywheelTargetRps = characterizationSession != null ? commandedFlywheelRps : nominalTargetSpeedRPS;
+        double nominalFlywheelTargetRps = characterizationSession != null ? commandedFlywheelRps
+                : nominalTargetSpeedRPS;
 
         telemetry.publishShooterState(new ShooterSnapshot(
                 needsHoming,

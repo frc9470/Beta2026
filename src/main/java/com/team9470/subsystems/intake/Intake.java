@@ -57,7 +57,6 @@ public class Intake extends SubsystemBase {
     private boolean agitating = false;
     private boolean needsHoming = true;
     private double homingStallStartTimestampSec = Double.NaN;
-    private double agitateStartTimeSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     // Cached SmartDashboard gain values (pivot Slot0)
@@ -104,11 +103,6 @@ public class Intake extends SubsystemBase {
 
     public void setAgitating(boolean agitating) {
         this.agitating = agitating;
-        if (agitating) {
-            agitateStartTimeSec = Timer.getFPGATimestamp();
-        } else {
-            agitateStartTimeSec = Double.NaN;
-        }
     }
 
     /**
@@ -273,26 +267,12 @@ public class Intake extends SubsystemBase {
 
         // --- Normal operation ---
 
-        boolean effectivelyAgitating = agitating;
-
         // Pivot control
         Angle targetAngle;
         if (deployHigh) {
             targetAngle = IntakeConstants.kDeployHighAngle;
-        } else if (effectivelyAgitating) {
-            double elapsed = Timer.getFPGATimestamp() - agitateStartTimeSec;
-            double period = 1.0 / IntakeConstants.kAgitateFrequencyHz;
-            double phase = (elapsed % period) / period; // 0.0 to 1.0
-            if (phase < 1.0 / 3.0) {
-                // Phase 1: half of middle angle
-                targetAngle = IntakeConstants.kAgitateMiddleAngle.div(2);
-            } else if (phase < 2.0 / 3.0) {
-                // Phase 2: back down to deploy
-                targetAngle = IntakeConstants.kDeployAngle;
-            } else {
-                // Phase 3: full middle angle
-                targetAngle = IntakeConstants.kAgitateMiddleAngle;
-            }
+        } else if (agitating) {
+            targetAngle = IntakeConstants.kDeployHighAngle;
         } else if (deployed) {
             targetAngle = IntakeConstants.kDeployAngle;
         } else {
@@ -302,7 +282,7 @@ public class Intake extends SubsystemBase {
         pivot.setControl(mmRequest.withPosition(targetRot));
 
         // Roller control
-        double rollerVolts = (deployed || deployHigh || effectivelyAgitating) ? IntakeConstants.kRollerVoltage : 0.0;
+        double rollerVolts = (deployed || deployHigh || agitating) ? IntakeConstants.kRollerVoltage : 0.0;
         leftRoller.setControl(rollerVoltageRequest.withOutput(rollerVolts));
 
         // --- Telemetry ---
@@ -313,7 +293,7 @@ public class Intake extends SubsystemBase {
         double setpointRad = IntakeConstants.pivotMechanismRotationsToAngle(targetRot).in(Radians);
 
         int stateCode;
-        if (effectivelyAgitating) {
+        if (agitating) {
             stateCode = STATE_AGITATING;
         } else if (deployHigh) {
             stateCode = STATE_DEPLOYED_HIGH;

@@ -97,6 +97,10 @@ public class Superstructure extends SubsystemBase {
     private static final int PRELOAD_FAULT_NONE = 0;
     private static final int PRELOAD_FAULT_TIMEOUT = 1;
     private static final int PRELOAD_FAULT_JAM = 2;
+
+    /** Seconds before / after the active zone to keep the flywheel boosted. */
+    private static final double kIdleBoostPaddingSec = 3.0;
+
     private LinearFilter driveAngleRateFilter = createMovingAverageFilter(kDriveAngleDerivativeFilterWindowSec);
     private LinearFilter hoodRateFilter = createMovingAverageFilter(kHoodDerivativeFilterWindowSec);
     private LinearFilter flywheelRateFilter = createMovingAverageFilter(kFlywheelDerivativeFilterWindowSec);
@@ -105,6 +109,8 @@ public class Superstructure extends SubsystemBase {
     private double lastHoodCommandDeg = 0.0;
     private double lastFlywheelRpm = 0.0;
     private String lastReleaseBlockReason = "NoBlockRecordedYet";
+    /** FPGA timestamp when the zone was last active, for the post-active cooldown. */
+    private double lastZoneActiveSec = Double.NEGATIVE_INFINITY;
 
     private Superstructure() {
         shooter = new Shooter();
@@ -128,9 +134,43 @@ public class Superstructure extends SubsystemBase {
     @Override
     public void periodic() {
         AutoAim.publishModeTelemetry(poseSupplier.get());
-        // No unconditional setSetpoint here - AutoAim setpoints are applied
-        // only by shooting commands (shootCommand, aimAndShootCommand).
-        // This prevents overriding manual flywheel/hood commands (e.g. debug Y button).
+
+        // Boost flywheel idle speed around the active zone window
+        updateActiveIdleBoost();
+    }
+
+    /**
+     * Boost flywheel idle speed around the active zone:
+     * - 3 s before the zone becomes active (inactive zone remaining ≤ 3 s)
+     * - During the active zone
+     * - 3 s after the zone ends
+     */
+    private void updateActiveIdleBoost() {
+        double nowSec = Timer.getFPGATimestamp();
+        boolean zoneActive = matchTimingService.zoneActive();
+
+        if (zoneActive) {
+            lastZoneActiveSec = nowSec;
+            shooter.setActiveIdleBoost(true);
+            return;
+        }
+
+        // Post-active cooldown: keep boosting for kIdleBoostPaddingSec after zone ended
+        if (nowSec - lastZoneActiveSec <= kIdleBoostPaddingSec) {
+            shooter.setActiveIdleBoost(true);
+            return;
+        }
+
+        // Pre-active ramp: boost if the inactive zone ends within kIdleBoostPaddingSec
+        if (matchTimingService.timingKnown()) {
+            double remaining = matchTimingService.zoneRemainingSec();
+            if (!zoneActive && remaining <= kIdleBoostPaddingSec) {
+                shooter.setActiveIdleBoost(true);
+                return;
+            }
+        }
+
+        shooter.setActiveIdleBoost(false);
     }
 
     // ==================== HIGH-LEVEL COMMANDS ====================
@@ -260,11 +300,11 @@ public class Superstructure extends SubsystemBase {
                 hopper.setHopperVoltage(kPreloadStageHopperVolts);
                 hopper.setFeederVoltage(kPreloadStageFeederVolts);
 
-                double averageFeederCurrentAmps = (
-                        Math.abs(hopper.getFeederLeftStatorCurrentAmps()) + Math.abs(hopper.getFeederRightStatorCurrentAmps()))
+                double averageFeederCurrentAmps = (Math.abs(hopper.getFeederLeftStatorCurrentAmps())
+                        + Math.abs(hopper.getFeederRightStatorCurrentAmps()))
                         * 0.5;
-                double averageFeederVelocityRps = (
-                        Math.abs(hopper.getFeederLeftVelocityRps()) + Math.abs(hopper.getFeederRightVelocityRps()))
+                double averageFeederVelocityRps = (Math.abs(hopper.getFeederLeftVelocityRps())
+                        + Math.abs(hopper.getFeederRightVelocityRps()))
                         * 0.5;
                 boolean jamDetected = averageFeederCurrentAmps > kPreloadJamCurrentAmps
                         && averageFeederVelocityRps < kPreloadJamVelocityRps;
@@ -405,7 +445,8 @@ public class Superstructure extends SubsystemBase {
             return new AimSetpointDerivatives(0.0, 0.0, 0.0);
         }
 
-        double rawDriveAngleRateRadPerSec = solution.targetRobotYaw().minus(lastTargetYaw).getRadians() / kControlLoopDtSec;
+        double rawDriveAngleRateRadPerSec = solution.targetRobotYaw().minus(lastTargetYaw).getRadians()
+                / kControlLoopDtSec;
         double rawHoodRateDegPerSec = (solution.hoodCommandDeg() - lastHoodCommandDeg) / kControlLoopDtSec;
         double rawFlywheelRateRpmPerSec = (solution.flywheelRpm() - lastFlywheelRpm) / kControlLoopDtSec;
 
@@ -500,14 +541,13 @@ public class Superstructure extends SubsystemBase {
     }
 
     static boolean shouldAllowRelease(
-            boolean timedAutoArmCandidate,
-            boolean timedReleaseStartedThisHold,
             boolean canFire,
-            boolean timedAllowFeed) {
-        if (!timedAutoArmCandidate || timedReleaseStartedThisHold) {
-            return canFire;
+            boolean releaseStartedThisHold) {
+        // Once release has started, keep feeding until the command ends.
+        if (releaseStartedThisHold) {
+            return true;
         }
-        return timedAllowFeed;
+        return canFire;
     }
 
     static boolean shouldTreatFlywheelAsReady(
@@ -575,8 +615,10 @@ public class Superstructure extends SubsystemBase {
             boolean flywheelAtSetpoint,
             boolean aligned,
             boolean sotmFireSafe) {
-        if (!timedFireDecision.timedAutoArmCandidate() || timedReleaseStartedThisHold || timedFireDecision.allowFeed()) {
-            return determineLiveReleaseBlockReason(shotValid, hoodAtSetpoint, flywheelAtSetpoint, aligned, sotmFireSafe);
+        if (!timedFireDecision.timedAutoArmCandidate() || timedReleaseStartedThisHold
+                || timedFireDecision.allowFeed()) {
+            return determineLiveReleaseBlockReason(shotValid, hoodAtSetpoint, flywheelAtSetpoint, aligned,
+                    sotmFireSafe);
         }
         return switch (timedFireDecision.reasonCode()) {
             case TimedFirePolicy.REASON_SHOOTER_NOT_READY ->
@@ -656,10 +698,10 @@ public class Superstructure extends SubsystemBase {
      * selection.
      * Handles swerve rotation automatically via auto-aim.
      *
-     * @param vxSupplier                   field-relative X velocity (m/s)
-     * @param vySupplier                   field-relative Y velocity (m/s)
-     * @param useRobotSideForFeedTarget    when true, feed mode target side is
-     *                                     selected from robot side (left/right)
+     * @param vxSupplier                field-relative X velocity (m/s)
+     * @param vySupplier                field-relative Y velocity (m/s)
+     * @param useRobotSideForFeedTarget when true, feed mode target side is
+     *                                  selected from robot side (left/right)
      */
     public Command aimAndShootCommand(
             Supplier<Double> vxSupplier,
@@ -727,10 +769,8 @@ public class Superstructure extends SubsystemBase {
                     vySupplier.get());
 
             boolean releaseAllowed = shouldAllowRelease(
-                    timedFireDecision.timedAutoArmCandidate(),
-                    timedReleaseStartedThisHold.get(),
                     canFire,
-                    timedFireDecision.allowFeed());
+                    releaseStartedThisHold.get());
             String releaseBlockReason = determineReleaseBlockReason(
                     timedFireDecision,
                     timedReleaseStartedThisHold.get(),
@@ -778,7 +818,8 @@ public class Superstructure extends SubsystemBase {
             double fieldVx = allianceFlip ? -limitedTranslation.getX() : limitedTranslation.getX();
             double fieldVy = allianceFlip ? -limitedTranslation.getY() : limitedTranslation.getY();
 
-            // Compute COR scalar — shifts rotation center toward shooter when yaw error is large
+            // Compute COR scalar — shifts rotation center toward shooter when yaw error is
+            // large
             double yawErrorDeg = Math.toDegrees(Math.abs(result.rotationErrorRad()));
             double corScalar = MathUtil.clamp(
                     (yawErrorDeg - kCORMinErrorDeg) / (kCORMaxErrorDeg - kCORMinErrorDeg),
@@ -891,9 +932,10 @@ public class Superstructure extends SubsystemBase {
             if (canFire) {
                 releaseStartedThisHold.set(true);
             }
+            boolean releaseAllowed = canFire || releaseStartedThisHold.get();
 
-            shooter.setFiring(canFire);
-            hopper.setRunning(canFire);
+            shooter.setFiring(releaseAllowed);
+            hopper.setRunning(releaseAllowed);
             publishReleaseBlockTelemetry(!canFire, releaseBlockReason);
             publishReleaseConditionTelemetry(new ReleaseTelemetryInputs(
                     canFire,
