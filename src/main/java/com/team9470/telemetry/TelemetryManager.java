@@ -1,5 +1,6 @@
 package com.team9470.telemetry;
 
+import com.team9470.FieldConstants;
 import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
 import com.team9470.telemetry.structs.DriveStatusSnapshot;
 import com.team9470.telemetry.structs.HopperSnapshot;
@@ -15,6 +16,7 @@ import com.team9470.telemetry.structs.TimedShotSnapshot;
 import com.team9470.telemetry.structs.VisionCameraSnapshot;
 import com.team9470.telemetry.structs.VisionSnapshot;
 import com.team9470.telemetry.structs.YShotSnapshot;
+import com.team9470.util.AllianceFlipUtil;
 import com.team9470.util.TelemetryUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -66,6 +68,13 @@ public final class TelemetryManager {
             .getDoubleArrayTopic("Modules/DriveStatorCurrentAmps").publish();
     private final StructPublisher<DriveStatusSnapshot> driveStatusPublisher = driveTable
             .getStructTopic("Status", DriveStatusSnapshot.struct).publish();
+    private final NetworkTable driveAimTable = driveTable.getSubTable("Aim");
+    private final StructArrayPublisher<Pose2d> driveAimHeadingLinePublisher = driveAimTable
+            .getStructArrayTopic("HeadingLine", Pose2d.struct).publish();
+    private final StructArrayPublisher<Pose2d> driveAimHubReferenceLinePublisher = driveAimTable
+            .getStructArrayTopic("HubReferenceLine", Pose2d.struct).publish();
+    private final StructPublisher<Pose2d> driveAimHubCenterPublisher = driveAimTable
+            .getStructTopic("HubCenter", Pose2d.struct).publish();
     private final NetworkTable driveAutoTable = driveTable.getSubTable("Auto");
     private final BooleanPublisher driveAutoActivePublisher = driveAutoTable.getBooleanTopic("Active").publish();
     private final DoublePublisher driveAutoLastSampleTimestampPublisher = TelemetryUtil.publishDouble(
@@ -243,12 +252,14 @@ public final class TelemetryManager {
     private final Map<String, StructArrayPublisher<Pose3d>> pose3dArrayPublishers = new HashMap<>();
 
     private int lastVisionValidationStatusCode = VALIDATION_OK;
+    private static final double kHeadingLineLengthMeters = Math.hypot(FieldConstants.fieldLength, FieldConstants.fieldWidth);
 
     private TelemetryManager() {
     }
 
     public void publishDrivePose(Pose2d pose) {
         drivePosePublisher.set(pose);
+        publishDriveAimGeometry(pose);
     }
 
     public void publishDriveSpeeds(ChassisSpeeds speeds) {
@@ -515,6 +526,19 @@ public final class TelemetryManager {
         StructArrayPublisher<Pose3d> publisher = pose3dArrayPublishers.computeIfAbsent(key,
                 k -> telemetryTable.getStructArrayTopic("Logs/" + k, Pose3d.struct).publish());
         publisher.set(poses);
+    }
+
+    private void publishDriveAimGeometry(Pose2d robotPose) {
+        Translation2d hubCenter = AllianceFlipUtil.apply(FieldConstants.Hub.topCenterPoint.toTranslation2d());
+        Pose2d hubCenterPose = new Pose2d(hubCenter, Rotation2d.kZero);
+        Translation2d headingEnd = robotPose.getTranslation().plus(new Translation2d(
+                robotPose.getRotation().getCos() * kHeadingLineLengthMeters,
+                robotPose.getRotation().getSin() * kHeadingLineLengthMeters));
+        Pose2d headingEndPose = new Pose2d(headingEnd, robotPose.getRotation());
+
+        driveAimHeadingLinePublisher.set(new Pose2d[] { robotPose, headingEndPose });
+        driveAimHubReferenceLinePublisher.set(new Pose2d[] { robotPose, hubCenterPose });
+        driveAimHubCenterPublisher.set(hubCenterPose);
     }
 
     private void publishAutoAimSolver(AutoAimSolverPublishers publishers, AutoAimSolverSnapshot snapshot, String modeLabel) {

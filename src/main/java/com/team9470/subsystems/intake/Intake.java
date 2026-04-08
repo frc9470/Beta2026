@@ -57,6 +57,7 @@ public class Intake extends SubsystemBase {
     private boolean agitating = false;
     private boolean needsHoming = true;
     private double homingStallStartTimestampSec = Double.NaN;
+    private double agitateStartTimeSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     // Cached SmartDashboard gain values (pivot Slot0)
@@ -103,6 +104,11 @@ public class Intake extends SubsystemBase {
 
     public void setAgitating(boolean agitating) {
         this.agitating = agitating;
+        if (agitating) {
+            agitateStartTimeSec = Timer.getFPGATimestamp();
+        } else {
+            agitateStartTimeSec = Double.NaN;
+        }
     }
 
     /**
@@ -113,6 +119,7 @@ public class Intake extends SubsystemBase {
         deployHigh = false;
         agitating = false;
         homingStallStartTimestampSec = Double.NaN;
+        agitateStartTimeSec = Double.NaN;
         needsHoming = true;
     }
 
@@ -272,7 +279,20 @@ public class Intake extends SubsystemBase {
         if (deployHigh) {
             targetAngle = IntakeConstants.kDeployHighAngle;
         } else if (agitating) {
-            targetAngle = IntakeConstants.kDeployHighAngle;
+            double nowSec = Timer.getFPGATimestamp();
+            if (Double.isNaN(agitateStartTimeSec)) {
+                agitateStartTimeSec = nowSec;
+            }
+            double elapsed = nowSec - agitateStartTimeSec;
+            double period = 1.0 / IntakeConstants.kAgitateFrequencyHz;
+            double phase = (elapsed % period) / period;
+            if (phase < 1.0 / 3.0) {
+                targetAngle = IntakeConstants.kAgitateMiddleAngle.div(2);
+            } else if (phase < 2.0 / 3.0) {
+                targetAngle = IntakeConstants.kDeployAngle;
+            } else {
+                targetAngle = IntakeConstants.kAgitateMiddleAngle;
+            }
         } else if (deployed) {
             targetAngle = IntakeConstants.kDeployAngle;
         } else {
