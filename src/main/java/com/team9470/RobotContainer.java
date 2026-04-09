@@ -182,7 +182,8 @@ public class RobotContainer {
     // Left Bumper: Toggle intake deployed/retracted
     m_driverController.leftBumper().onTrue(m_superstructure.toggleIntakeCommand());
 
-    // Right Bumper: Stage a note normally, or run the full shooter characterization in
+    // Right Bumper: Stage a note normally, or run the full shooter characterization
+    // in
     // Test mode.
     nonTestModeTrigger(m_driverController.rightBumper()).onTrue(m_superstructure.stagePreloadCommand());
     testModeTrigger(m_driverController.rightBumper()).onTrue(
@@ -275,7 +276,8 @@ public class RobotContainer {
             ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP,
             "Shooter Open-Loop Voltage Sweep"));
 
-    // Right Stick (press - steer stick): Low-priority manual re-home for intake + hood
+    // Right Stick (press - steer stick): Low-priority manual re-home for intake +
+    // hood
     m_driverController.rightStick().onTrue(m_superstructure.homeIntakeAndHoodCommand());
 
     // Left Stick (press/hold): Turbo anti-defense mode (raise drive slip current to
@@ -317,14 +319,16 @@ public class RobotContainer {
 
   private void configureAutonomous() {
     m_autoChooser.addRoutine("Do Nothing", m_autos::doNothing);
+    m_autoChooser.addRoutine("leftTrench", m_autos::leftTrench);
     m_autoChooser.addRoutine("rightTrench", m_autos::rightTrench);
-    m_autoChooser.addRoutine("leftTrenchPrototype", m_autos::leftTrenchPrototype);
-    m_autoChooser.addRoutine("rightTrenchPrototype", m_autos::rightTrenchPrototype);
     m_autoChooser.addRoutine("shootPreloaded", m_autos::shootPreloaded);
-    m_autoChooser.addRoutine("speed", m_autos::speed);
+    m_autoChooser.addRoutine("leftSpeed", m_autos::leftSpeed);
+    m_autoChooser.addRoutine("rightSpeed", m_autos::rightSpeed);
     m_autoChooser.addRoutine("leftBump", m_autos::leftBump);
     m_autoChooser.addRoutine("leftBumpDepot", m_autos::leftBumpDepot);
     m_autoChooser.addRoutine("rightBump", m_autos::rightBump);
+    m_autoChooser.addRoutine("leftBumpConservative", m_autos::leftBumpConservative);
+    m_autoChooser.addRoutine("rightBumpConservative", m_autos::rightBumpConservative);
     m_autoChooser.select("Do Nothing");
     SmartDashboard.putData("AutoChooser", m_autoChooser);
   }
