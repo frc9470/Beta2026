@@ -8,12 +8,13 @@ import com.team9470.subsystems.Superstructure;
 import com.team9470.subsystems.swerve.Swerve;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.InstantCommand;
 
 public class Autos {
   private final AutoFactory m_autoFactory;
 
   private static final double kAutoAgitateDelaySec = 1.0;
+  private static final double kTrenchShotTimeoutSec = 3.0;
+  private static final double kBumpShotTimeoutSec = 3.25;
 
   public Autos(Swerve swerve) {
     m_autoFactory = swerve.createAutoFactory();
@@ -34,6 +35,67 @@ public class Autos {
   private static void bindAutoStaging(AutoTrajectory trajectory) {
     trajectory.atTime("staging")
         .onTrue(Superstructure.getInstance().stagePreloadAutoCommand());
+  }
+
+  private static Command deployIntake() {
+    return Commands.runOnce(() -> Superstructure.getInstance().getIntake().setDeployed(true));
+  }
+
+  private static AutoTrajectory loadTrajectory(
+      AutoRoutine routine, String trajectoryName, boolean mirrorAcrossY) {
+    AutoTrajectory trajectory = routine.trajectory(trajectoryName);
+    return mirrorAcrossY ? trajectory.mirrorY() : trajectory;
+  }
+
+  private AutoRoutine buildTrenchRoutine(
+      String routineName, boolean mirrorAcrossY, boolean driveToCenter) {
+    AutoRoutine routine = m_autoFactory.newRoutine(routineName);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "leftTrenchCycle1", mirrorAcrossY);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "leftTrenchCycle2Prototype", mirrorAcrossY);
+
+    Command autoCommand = firstCycle.resetOdometry()
+        .andThen(deployIntake())
+        .andThen(firstCycle.cmd())
+        .andThen(aimShootWithAgitate(kTrenchShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kTrenchShotTimeoutSec));
+
+    if (driveToCenter) {
+      AutoTrajectory toCenter = loadTrajectory(routine, "leftTrenchToCenter", mirrorAcrossY);
+      autoCommand = autoCommand.andThen(toCenter.cmd());
+    }
+
+    routine.active().onTrue(autoCommand);
+    return routine;
+  }
+
+  private AutoRoutine buildBumpRoutine(
+      String routineName,
+      boolean mirrorAcrossY,
+      String finishTrajectoryName,
+      boolean shootAfterFinish) {
+    AutoRoutine routine = m_autoFactory.newRoutine(routineName);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", mirrorAcrossY);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2", mirrorAcrossY);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, finishTrajectoryName, mirrorAcrossY);
+
+    Command autoCommand = firstCycle.resetOdometry()
+        .andThen(deployIntake())
+        .andThen(firstCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(finishTrajectory.cmd());
+
+    if (shootAfterFinish) {
+      autoCommand = autoCommand.andThen(aimShootWithAgitate(kBumpShotTimeoutSec));
+    }
+
+    routine.active().onTrue(autoCommand);
+
+    bindAutoStaging(firstCycle);
+    bindAutoStaging(secondCycle);
+    return routine;
   }
 
   public AutoRoutine doNothing() {
@@ -57,57 +119,20 @@ public class Autos {
             .andThen(leftTrenchToCenter.cmd()));
 
     speed.atTime("IntakeDown")
-        .onTrue(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)));
+        .onTrue(deployIntake());
     return routine;
   }
 
   public AutoRoutine rightTrench() {
-    AutoRoutine routine = m_autoFactory.newRoutine("rightTrench");
-    AutoTrajectory rightTrench = routine.trajectory("rightTrenchCycle1Prototype");
-    AutoTrajectory rightTrench2 = routine.trajectory("rightTrenchCycle2");
-
-    routine.active().onTrue(
-        rightTrench.resetOdometry()
-            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            .andThen(rightTrench.cmd())
-            .andThen(aimShootWithAgitate(3))
-            .andThen(rightTrench2.cmd())
-            .andThen(aimShootWithAgitate(3)));
-    return routine;
+    return buildTrenchRoutine("rightTrench", true, false);
   }
 
   public AutoRoutine rightTrenchPrototype() {
-    AutoRoutine routine = m_autoFactory.newRoutine("rightTrenchPrototype");
-    AutoTrajectory rightTrench = routine.trajectory("rightTrenchCycle1Prototype");
-    AutoTrajectory rightTrench2 = routine.trajectory("rightTrenchCycle2Prototype");
-    AutoTrajectory rightTrench3 = routine.trajectory("rightTrenchToCenter");
-
-    routine.active().onTrue(
-        rightTrench.resetOdometry()
-            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            .andThen(rightTrench.cmd())
-            .andThen(aimShootWithAgitate(3))
-            .andThen(rightTrench2.cmd())
-            .andThen(aimShootWithAgitate(3))
-            .andThen(rightTrench3.cmd()));
-    return routine;
+    return buildTrenchRoutine("rightTrenchPrototype", true, true);
   }
 
   public AutoRoutine leftTrenchPrototype() {
-    AutoRoutine routine = m_autoFactory.newRoutine("leftTrenchPrototype");
-    AutoTrajectory leftTrench = routine.trajectory("leftTrenchCycle1Prototype");
-    AutoTrajectory leftTrench2 = routine.trajectory("leftTrenchCycle2Prototype");
-    AutoTrajectory leftTrench3 = routine.trajectory("leftTrenchToCenter");
-
-    routine.active().onTrue(
-        leftTrench.resetOdometry()
-            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            .andThen(leftTrench.cmd())
-            .andThen(aimShootWithAgitate(3))
-            .andThen(leftTrench2.cmd())
-            .andThen(aimShootWithAgitate(3))
-            .andThen(leftTrench3.cmd()));
-    return routine;
+    return buildTrenchRoutine("leftTrenchPrototype", false, true);
   }
 
   public AutoRoutine shootPreloaded() {
@@ -117,65 +142,15 @@ public class Autos {
   }
 
   public AutoRoutine leftBump() {
-    AutoRoutine routine = m_autoFactory.newRoutine("leftBump");
-    AutoTrajectory leftBump = routine.trajectory("leftBumpCycle1");
-    AutoTrajectory leftBump2 = routine.trajectory("leftBumpCycle2");
-    AutoTrajectory leftBump3 = routine.trajectory("overLeftBump");
-
-    routine.active().onTrue(
-        leftBump.resetOdometry()
-            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            .andThen(leftBump.cmd())
-            .andThen(aimShootWithAgitate(3.25))
-            .andThen(leftBump2.cmd())
-            .andThen(aimShootWithAgitate(3.25))
-            .andThen(leftBump3.cmd()));
-
-    bindAutoStaging(leftBump);
-    bindAutoStaging(leftBump2);
-
-    return routine;
+    return buildBumpRoutine("leftBump", false, "overLeftBump", false);
   }
 
   public AutoRoutine leftBumpDepot() {
-    AutoRoutine routine = m_autoFactory.newRoutine("leftBumpDepot");
-    AutoTrajectory leftBump = routine.trajectory("leftBumpCycle1");
-    AutoTrajectory leftBump2 = routine.trajectory("leftBumpCycle2");
-    AutoTrajectory leftBump3 = routine.trajectory("leftBumpDepot");
-
-    routine.active().onTrue(
-        leftBump.resetOdometry()
-            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            .andThen(leftBump.cmd())
-            .andThen(aimShootWithAgitate(3.25))
-            .andThen(leftBump2.cmd())
-            .andThen(aimShootWithAgitate(3.25))
-            .andThen(leftBump3.cmd())
-            .andThen(aimShootWithAgitate(3.25)));
-
-    bindAutoStaging(leftBump);
-    bindAutoStaging(leftBump2);
-    return routine;
+    return buildBumpRoutine("leftBumpDepot", false, "leftBumpDepot", true);
   }
 
 
   public AutoRoutine rightBump() {
-    AutoRoutine routine = m_autoFactory.newRoutine("rightBump");
-    AutoTrajectory rightBump = routine.trajectory("rightBumpCycle1");
-    AutoTrajectory rightBump2 = routine.trajectory("rightBumpCycle2");
-    AutoTrajectory rightBump3 = routine.trajectory("rightBumpToCenter");
-
-    routine.active().onTrue(
-        rightBump.resetOdometry()
-            .andThen(new InstantCommand(() -> Superstructure.getInstance().getIntake().setDeployed(true)))
-            .andThen(rightBump.cmd())
-            .andThen(aimShootWithAgitate(3.25))
-            .andThen(rightBump2.cmd())
-            .andThen(aimShootWithAgitate(3.25))
-            .andThen(rightBump3.cmd()));
-
-    bindAutoStaging(rightBump);
-    bindAutoStaging(rightBump2);
-    return routine;
+    return buildBumpRoutine("rightBump", true, "leftBumpToCenter", false);
   }
 }
