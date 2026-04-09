@@ -275,11 +275,20 @@ public class RobotContainer {
             ShooterCharacterizationMode.OPEN_LOOP_VOLTAGE_SWEEP,
             "Shooter Open-Loop Voltage Sweep"));
 
-    // Right Stick (press): Low-priority manual re-home for intake + hood
+    // Right Stick (press - steer stick): Low-priority manual re-home for intake + hood
     m_driverController.rightStick().onTrue(m_superstructure.homeIntakeAndHoodCommand());
 
-    // Left Stick (press): Stop shooter characterization in Test mode.
-    testModeTrigger(m_driverController.leftStick()).onTrue(
+    // Left Stick (press/hold): Turbo anti-defense mode (raise drive slip current to
+    // 100A while held).
+    m_driverController.leftStick().whileTrue(
+        Commands.startEnd(
+            () -> m_swerve.setTurboDriveCurrentLimitEnabled(true),
+            () -> m_swerve.setTurboDriveCurrentLimitEnabled(false),
+            m_swerve)
+            .withName("Drive Turbo Mode"));
+
+    // POV Up (press): Stop shooter characterization in Test mode.
+    testModeTrigger(m_driverController.povUp()).onTrue(
         Commands.runOnce(() -> m_superstructure.getShooter().stopCharacterization(), m_superstructure.getShooter())
             .withName("Shooter Characterization Stop"));
 
