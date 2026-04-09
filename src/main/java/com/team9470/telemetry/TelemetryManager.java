@@ -66,6 +66,15 @@ public final class TelemetryManager {
             .getDoubleArrayTopic("Modules/DriveVelocityRps").publish();
     private final DoubleArrayPublisher driveModuleStatorCurrentPublisher = driveTable
             .getDoubleArrayTopic("Modules/DriveStatorCurrentAmps").publish();
+    private final NetworkTable driveCurrentLimitTable = driveTable.getSubTable("CurrentLimit");
+    private final DoublePublisher driveCurrentLimitActivePublisher = TelemetryUtil.publishDouble(
+            driveCurrentLimitTable, "ActiveStatorAmps", "A");
+    private final DoublePublisher driveCurrentLimitNominalPublisher = TelemetryUtil.publishDouble(
+            driveCurrentLimitTable, "NominalStatorAmps", "A");
+    private final DoublePublisher driveCurrentLimitTurboPublisher = TelemetryUtil.publishDouble(
+            driveCurrentLimitTable, "TurboStatorAmps", "A");
+    private final BooleanPublisher driveCurrentLimitTurboEnabledPublisher = driveCurrentLimitTable
+            .getBooleanTopic("TurboEnabled").publish();
     private final StructPublisher<DriveStatusSnapshot> driveStatusPublisher = driveTable
             .getStructTopic("Status", DriveStatusSnapshot.struct).publish();
     private final NetworkTable driveAimTable = driveTable.getSubTable("Aim");
@@ -281,6 +290,17 @@ public final class TelemetryManager {
     public void publishDriveModuleElectrical(double[] driveVelocityRps, double[] driveStatorCurrentAmps) {
         driveModuleVelocityPublisher.set(driveVelocityRps);
         driveModuleStatorCurrentPublisher.set(driveStatorCurrentAmps);
+    }
+
+    public void publishDriveCurrentLimits(
+            double activeStatorCurrentLimitAmps,
+            double nominalStatorCurrentLimitAmps,
+            double turboStatorCurrentLimitAmps,
+            boolean turboEnabled) {
+        driveCurrentLimitActivePublisher.set(activeStatorCurrentLimitAmps);
+        driveCurrentLimitNominalPublisher.set(nominalStatorCurrentLimitAmps);
+        driveCurrentLimitTurboPublisher.set(turboStatorCurrentLimitAmps);
+        driveCurrentLimitTurboEnabledPublisher.set(turboEnabled);
     }
 
     public void publishDriveStatus(DriveStatusSnapshot snapshot) {

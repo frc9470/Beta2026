@@ -89,6 +89,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
             .withDriveRequestType(SwerveModule.DriveRequestType.Velocity);
     private final SwerveRequest.SwerveDriveBrake brakeRequest = new SwerveRequest.SwerveDriveBrake();
     private double activeDriveStatorCurrentLimitAmps = Double.NaN;
+    private boolean turboDriveCurrentLimitEnabled = false;
     /*
      * SysId routine for characterizing translation. This is used to find PID gains
      * for the drive motors.
@@ -338,6 +339,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     }
 
     public void setTurboDriveCurrentLimitEnabled(boolean enabled) {
+        turboDriveCurrentLimitEnabled = enabled;
         setDriveStatorCurrentLimitAmps(
                 enabled
                         ? TunerConstants.kTurboSlipCurrent.in(Amps)
@@ -345,16 +347,21 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     }
 
     private void setDriveStatorCurrentLimitAmps(double statorCurrentLimitAmps) {
-        if (Math.abs(statorCurrentLimitAmps - activeDriveStatorCurrentLimitAmps) < 1e-9) {
-            return;
-        }
+        boolean currentLimitChanged = Math.abs(statorCurrentLimitAmps - activeDriveStatorCurrentLimitAmps) >= 1e-9;
         activeDriveStatorCurrentLimitAmps = statorCurrentLimitAmps;
-        CurrentLimitsConfigs driveCurrentLimits = new CurrentLimitsConfigs()
-                .withStatorCurrentLimit(statorCurrentLimitAmps)
-                .withStatorCurrentLimitEnable(true);
-        for (var module : getModules()) {
-            module.getDriveMotor().getConfigurator().apply(driveCurrentLimits);
+        if (currentLimitChanged) {
+            CurrentLimitsConfigs driveCurrentLimits = new CurrentLimitsConfigs()
+                    .withStatorCurrentLimit(statorCurrentLimitAmps)
+                    .withStatorCurrentLimitEnable(true);
+            for (var module : getModules()) {
+                module.getDriveMotor().getConfigurator().apply(driveCurrentLimits);
+            }
         }
+        telemetry.publishDriveCurrentLimits(
+                activeDriveStatorCurrentLimitAmps,
+                TunerConstants.kNominalSlipCurrent.in(Amps),
+                TunerConstants.kTurboSlipCurrent.in(Amps),
+                turboDriveCurrentLimitEnabled);
     }
 
     public DriverStation.Alliance getAlliance() {

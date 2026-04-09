@@ -1,6 +1,5 @@
 package com.team9470;
 
-import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.swerve.SwerveDrivetrain.SwerveDriveState;
 import com.team9470.telemetry.TelemetryManager;
 import com.team9470.telemetry.structs.DriveStatusSnapshot;
@@ -12,7 +11,9 @@ public class Telemetry {
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
 
     public Telemetry(double maxSpeedMetersPerSecond) {
-        SignalLogger.start();
+        // Phoenix SignalLogger is intentionally left off during normal boots.
+        // We are not using .hoot logs for matches right now, and enabling it
+        // continuously just consumes robot storage.
     }
 
     public void telemeterize(SwerveDriveState state) {

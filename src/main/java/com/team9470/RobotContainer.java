@@ -279,13 +279,15 @@ public class RobotContainer {
     m_driverController.rightStick().onTrue(m_superstructure.homeIntakeAndHoodCommand());
 
     // Left Stick (press/hold): Turbo anti-defense mode (raise drive slip current to
-    // 100A while held).
-    m_driverController.leftStick().whileTrue(
-        Commands.startEnd(
-            () -> m_swerve.setTurboDriveCurrentLimitEnabled(true),
-            () -> m_swerve.setTurboDriveCurrentLimitEnabled(false),
-            m_swerve)
-            .withName("Drive Turbo Mode"));
+    // 100A while held) without interrupting the active drive command.
+    m_driverController.leftStick().onTrue(
+        Commands.runOnce(() -> m_swerve.setTurboDriveCurrentLimitEnabled(true))
+            .ignoringDisable(true)
+            .withName("Drive Turbo Enable"));
+    m_driverController.leftStick().onFalse(
+        Commands.runOnce(() -> m_swerve.setTurboDriveCurrentLimitEnabled(false))
+            .ignoringDisable(true)
+            .withName("Drive Turbo Disable"));
 
     // POV Up (press): Stop shooter characterization in Test mode.
     testModeTrigger(m_driverController.povUp()).onTrue(
