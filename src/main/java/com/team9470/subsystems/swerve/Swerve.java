@@ -5,6 +5,7 @@ import choreo.auto.AutoFactory;
 import choreo.trajectory.SwerveSample;
 import com.ctre.phoenix6.SignalLogger;
 import com.ctre.phoenix6.Utils;
+import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
@@ -87,6 +88,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     private final SwerveRequest.FieldCentric fieldCentricRequest = new SwerveRequest.FieldCentric()
             .withDriveRequestType(SwerveModule.DriveRequestType.Velocity);
     private final SwerveRequest.SwerveDriveBrake brakeRequest = new SwerveRequest.SwerveDriveBrake();
+    private double activeDriveStatorCurrentLimitAmps = Double.NaN;
     /*
      * SysId routine for characterizing translation. This is used to find PID gains
      * for the drive motors.
@@ -198,6 +200,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
         // }
         // configAutoBuilder();
         initSmartDashboardGains();
+        setDriveStatorCurrentLimitAmps(TunerConstants.kNominalSlipCurrent.in(Amps));
     }
 
     private void initSmartDashboardGains() {
@@ -332,6 +335,26 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
      */
     public void driveFieldRelative(ChassisSpeeds fieldRelativeSpeeds) {
         setControl(applyFieldSpeeds.withSpeeds(fieldRelativeSpeeds));
+    }
+
+    public void setTurboDriveCurrentLimitEnabled(boolean enabled) {
+        setDriveStatorCurrentLimitAmps(
+                enabled
+                        ? TunerConstants.kTurboSlipCurrent.in(Amps)
+                        : TunerConstants.kNominalSlipCurrent.in(Amps));
+    }
+
+    private void setDriveStatorCurrentLimitAmps(double statorCurrentLimitAmps) {
+        if (Math.abs(statorCurrentLimitAmps - activeDriveStatorCurrentLimitAmps) < 1e-9) {
+            return;
+        }
+        activeDriveStatorCurrentLimitAmps = statorCurrentLimitAmps;
+        CurrentLimitsConfigs driveCurrentLimits = new CurrentLimitsConfigs()
+                .withStatorCurrentLimit(statorCurrentLimitAmps)
+                .withStatorCurrentLimitEnable(true);
+        for (var module : getModules()) {
+            module.getDriveMotor().getConfigurator().apply(driveCurrentLimits);
+        }
     }
 
     public DriverStation.Alliance getAlliance() {
