@@ -105,11 +105,45 @@ public class Autos {
   }
 
   public AutoRoutine leftSpeed() {
-    return buildBumpRoutine("leftSpeed", false, "overLeftBump", false);
+    AutoRoutine routine = m_autoFactory.newRoutine("leftSpeed");
+    AutoTrajectory firstCycle = loadTrajectory(routine, "speed", false);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "speed2", false);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", false);
+
+    Command autoCommand = firstCycle.resetOdometry()
+        .andThen(deployIntake())
+        .andThen(firstCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(finishTrajectory.cmd());
+
+    routine.active().onTrue(autoCommand);
+
+    bindAutoStaging(firstCycle);
+    bindAutoStaging(secondCycle);
+    return routine;
   }
 
   public AutoRoutine rightSpeed() {
-    return buildBumpRoutine("rightSpeed", true, "overRightBump", false);
+    AutoRoutine routine = m_autoFactory.newRoutine("rightSpeed");
+    AutoTrajectory firstCycle = loadTrajectory(routine, "speed", true);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "speed2", true);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", true);
+
+    Command autoCommand = firstCycle.resetOdometry()
+        .andThen(deployIntake())
+        .andThen(firstCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(finishTrajectory.cmd());
+
+    routine.active().onTrue(autoCommand);
+
+    bindAutoStaging(firstCycle);
+    bindAutoStaging(secondCycle);
+    return routine;
   }
 
   public AutoRoutine rightTrench() {
