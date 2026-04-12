@@ -65,6 +65,7 @@ public class RobotContainer {
   private static final String kDebugYShotHoodDegKey = "Debug/YShot/HoodAngleDeg";
   private static final String kActiveWindowEarlyRumbleLeadSecKey = "Debug/Rumble/ActiveLeadEarlySec";
   private static final String kActiveWindowRumbleLeadSecKey = "Debug/Rumble/ActiveLeadSec";
+  private static final String kAutoTurboEnabledKey = "Autonomous/AutoTurboEnabled";
   private static final ShotParameter kDebugYShotDefaultShot = ShooterInterpolationMaps.getHub(2.0)
       .orElse(new ShotParameter(21.0, 1950.0));
   private static final double kDebugYShotDefaultRpm = kDebugYShotDefaultShot.flywheelRpm();
@@ -75,6 +76,7 @@ public class RobotContainer {
   private static final double kIntakeHeadingManualOverrideDeadband = 0.10;
   private static final double kActiveWindowEarlyRumbleLeadSecDefault = 10.0;
   private static final double kActiveWindowRumbleLeadSecDefault = 5.0;
+  private static final boolean kAutoTurboEnabledDefault = false;
   private static final double kActiveWindowEarlyRumbleIntensity = 0.70;
   private static final double kActiveWindowRumbleIntensity = 1.00;
   private static final double kActiveWindowRumbleSec = 0.20;
@@ -96,6 +98,17 @@ public class RobotContainer {
     SmartDashboard.putNumber(kDebugYShotHoodDegKey, kDebugYShotDefaultHoodDeg);
     SmartDashboard.putNumber(kActiveWindowEarlyRumbleLeadSecKey, kActiveWindowEarlyRumbleLeadSecDefault);
     SmartDashboard.putNumber(kActiveWindowRumbleLeadSecKey, kActiveWindowRumbleLeadSecDefault);
+    SmartDashboard.putBoolean(
+        kAutoTurboEnabledKey,
+        SmartDashboard.getBoolean(kAutoTurboEnabledKey, kAutoTurboEnabledDefault));
+  }
+
+  public boolean isAutoTurboEnabled() {
+    return SmartDashboard.getBoolean(kAutoTurboEnabledKey, kAutoTurboEnabledDefault);
+  }
+
+  public void setTurboDriveCurrentLimitEnabled(boolean enabled) {
+    m_swerve.setTurboDriveCurrentLimitEnabled(enabled);
   }
 
   private final SwerveRequest.SwerveDriveBrake xLock = new SwerveRequest.SwerveDriveBrake();

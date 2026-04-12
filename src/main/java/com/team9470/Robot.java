@@ -23,8 +23,11 @@ import java.nio.file.Path;
 public class Robot extends TimedRobot {
   private static final Path kUsbMountPath = Path.of("/u");
   private static final Path kUsbLogDir = kUsbMountPath.resolve("logs");
+  private static final double kAutoTurboWindowSec = 3.0;
 
   private Command m_autonomousCommand;
+  private boolean autoTurboWindowActive = false;
+  private double autoTurboDisableTimestampSec = Double.NaN;
 
   private final RobotContainer m_robotContainer;
   private final MatchTimingService matchTimingService = MatchTimingService.getInstance();
@@ -61,6 +64,8 @@ public class Robot extends TimedRobot {
 
   @Override
   public void robotPeriodic() {
+    updateAutoTurboWindow();
+
     MatchType matchType = DriverStation.getMatchType();
     var practiceTimerOutput = practiceTimerTracker.update(new PracticeTimerTracker.DriverStationSample(
         Timer.getFPGATimestamp(),
@@ -83,8 +88,36 @@ public class Robot extends TimedRobot {
     CommandScheduler.getInstance().run();
   }
 
+  private void updateAutoTurboWindow() {
+    if (autoTurboWindowActive && Timer.getFPGATimestamp() >= autoTurboDisableTimestampSec) {
+      stopAutoTurboWindow();
+    }
+  }
+
+  private void startAutoTurboWindowIfEnabled() {
+    stopAutoTurboWindow();
+    if (!m_robotContainer.isAutoTurboEnabled()) {
+      return;
+    }
+
+    m_robotContainer.setTurboDriveCurrentLimitEnabled(true);
+    autoTurboWindowActive = true;
+    autoTurboDisableTimestampSec = Timer.getFPGATimestamp() + kAutoTurboWindowSec;
+  }
+
+  private void stopAutoTurboWindow() {
+    if (!autoTurboWindowActive) {
+      return;
+    }
+
+    m_robotContainer.setTurboDriveCurrentLimitEnabled(false);
+    autoTurboWindowActive = false;
+    autoTurboDisableTimestampSec = Double.NaN;
+  }
+
   @Override
   public void disabledInit() {
+    stopAutoTurboWindow();
   }
 
   @Override
@@ -94,6 +127,7 @@ public class Robot extends TimedRobot {
   @Override
   public void autonomousInit() {
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
+    startAutoTurboWindowIfEnabled();
 
     if (m_autonomousCommand != null) {
       CommandScheduler.getInstance().schedule(m_autonomousCommand);
@@ -106,6 +140,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void teleopInit() {
+    stopAutoTurboWindow();
 
     if (m_autonomousCommand != null) {
       m_autonomousCommand.cancel();
@@ -118,6 +153,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void testInit() {
+    stopAutoTurboWindow();
 
     CommandScheduler.getInstance().cancelAll();
   }
