@@ -51,7 +51,7 @@ public class Autos {
       String routineName, boolean mirrorAcrossY, boolean driveToCenter) {
     AutoRoutine routine = m_autoFactory.newRoutine(routineName);
     AutoTrajectory firstCycle = loadTrajectory(routine, "leftTrenchCycle1", mirrorAcrossY);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "leftTrenchCycle2Prototype", mirrorAcrossY);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "leftTrenchCycle2", mirrorAcrossY);
 
     Command autoCommand = firstCycle.resetOdometry()
         .andThen(deployIntake())
@@ -104,35 +104,20 @@ public class Autos {
     return routine;
   }
 
-  public AutoRoutine speed() {
-    AutoRoutine routine = m_autoFactory.newRoutine("speed");
-    AutoTrajectory speed = routine.trajectory("speed");
-    AutoTrajectory speed2 = routine.trajectory("speed2");
-    AutoTrajectory leftTrenchToCenter = routine.trajectory("leftTrenchToCenter");
+  public AutoRoutine leftSpeed() {
+    return buildBumpRoutine("leftSpeed", false, "overLeftBump", false);
+  }
 
-    routine.active().onTrue(
-        speed.resetOdometry()
-            .andThen(speed.cmd())
-            .andThen(aimShootWithAgitate(3))
-            .andThen(speed2.cmd())
-            .andThen(aimShootWithAgitate(3.5))
-            .andThen(leftTrenchToCenter.cmd()));
-
-    speed.atTime("IntakeDown")
-        .onTrue(deployIntake());
-    return routine;
+  public AutoRoutine rightSpeed() {
+    return buildBumpRoutine("rightSpeed", true, "overRightBump", false);
   }
 
   public AutoRoutine rightTrench() {
-    return buildTrenchRoutine("rightTrench", true, false);
+    return buildTrenchRoutine("rightTrench", true, true);
   }
 
-  public AutoRoutine rightTrenchPrototype() {
-    return buildTrenchRoutine("rightTrenchPrototype", true, true);
-  }
-
-  public AutoRoutine leftTrenchPrototype() {
-    return buildTrenchRoutine("leftTrenchPrototype", false, true);
+  public AutoRoutine leftTrench() {
+    return buildTrenchRoutine("leftTrench", false, true);
   }
 
   public AutoRoutine shootPreloaded() {
@@ -151,6 +136,48 @@ public class Autos {
 
 
   public AutoRoutine rightBump() {
-    return buildBumpRoutine("rightBump", true, "leftBumpToCenter", false);
+    return buildBumpRoutine("rightBump", true, "overLeftBump", false);
+  }
+
+  public AutoRoutine leftBumpConservative() {
+    AutoRoutine routine = m_autoFactory.newRoutine("leftBumpConservative");
+    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", false);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Conservative", false);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "leftBumpToCenter", false);
+
+    Command autoCommand = firstCycle.resetOdometry()
+        .andThen(deployIntake())
+        .andThen(firstCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(finishTrajectory.cmd());
+
+    routine.active().onTrue(autoCommand);
+
+    bindAutoStaging(firstCycle);
+    bindAutoStaging(secondCycle);
+    return routine;
+  }
+
+  public AutoRoutine rightBumpConservative() {
+    AutoRoutine routine = m_autoFactory.newRoutine("rightBumpConservative");
+    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", true);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Conservative", true);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "leftBumpToCenter", true);
+
+    Command autoCommand = firstCycle.resetOdometry()
+        .andThen(deployIntake())
+        .andThen(firstCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(finishTrajectory.cmd());
+
+    routine.active().onTrue(autoCommand);
+
+    bindAutoStaging(firstCycle);
+    bindAutoStaging(secondCycle);
+    return routine;
   }
 }
