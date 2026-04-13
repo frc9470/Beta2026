@@ -21,8 +21,10 @@ public class Autos {
   }
 
   /**
-   * Wraps aimAndShootCommand with a 1-second delayed agitation running in parallel.
-   * When the shoot command finishes or times out, agitation is automatically cancelled.
+   * Wraps aimAndShootCommand with a 1-second delayed agitation running in
+   * parallel.
+   * When the shoot command finishes or times out, agitation is automatically
+   * cancelled.
    */
   private static Command aimShootWithAgitate(double timeoutSec) {
     return Commands.deadline(
@@ -30,7 +32,6 @@ public class Autos {
         Commands.waitSeconds(kAutoAgitateDelaySec)
             .andThen(Superstructure.getInstance().agitateIntakeCommand()));
   }
-
 
   private static void bindAutoStaging(AutoTrajectory trajectory) {
     trajectory.atTime("staging")
@@ -168,7 +169,6 @@ public class Autos {
     return buildBumpRoutine("leftBumpDepot", false, "leftBumpDepot", true);
   }
 
-
   public AutoRoutine rightBump() {
     return buildBumpRoutine("rightBump", true, "overLeftBump", false);
   }
@@ -177,7 +177,49 @@ public class Autos {
     AutoRoutine routine = m_autoFactory.newRoutine("leftBumpConservative");
     AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", false);
     AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Conservative", false);
-    AutoTrajectory finishTrajectory = loadTrajectory(routine, "leftBumpToCenter", false);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", false);
+
+    Command autoCommand = firstCycle.resetOdometry()
+        .andThen(deployIntake())
+        .andThen(firstCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(finishTrajectory.cmd());
+
+    routine.active().onTrue(autoCommand);
+
+    bindAutoStaging(firstCycle);
+    bindAutoStaging(secondCycle);
+    return routine;
+  }
+
+  public AutoRoutine leftBumpRush() {
+    AutoRoutine routine = m_autoFactory.newRoutine("leftBumpRush");
+    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1Rush", false);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Prototype", false);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", false);
+
+    Command autoCommand = firstCycle.resetOdometry()
+        .andThen(deployIntake())
+        .andThen(firstCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(finishTrajectory.cmd());
+
+    routine.active().onTrue(autoCommand);
+
+    bindAutoStaging(firstCycle);
+    bindAutoStaging(secondCycle);
+    return routine;
+  }
+
+  public AutoRoutine rightBumpRush() {
+    AutoRoutine routine = m_autoFactory.newRoutine("rightBumpRush");
+    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1Rush", true);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Prototype", true);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", true);
 
     Command autoCommand = firstCycle.resetOdometry()
         .andThen(deployIntake())
@@ -198,7 +240,7 @@ public class Autos {
     AutoRoutine routine = m_autoFactory.newRoutine("rightBumpConservative");
     AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", true);
     AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Conservative", true);
-    AutoTrajectory finishTrajectory = loadTrajectory(routine, "leftBumpToCenter", true);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", true);
 
     Command autoCommand = firstCycle.resetOdometry()
         .andThen(deployIntake())
