@@ -308,20 +308,8 @@ public class Intake extends SubsystemBase {
         if (deployHigh) {
             targetAngle = IntakeConstants.kDeployHighAngle;
         } else if (agitating) {
-            double nowSec = Timer.getFPGATimestamp();
-            if (Double.isNaN(agitateStartTimeSec)) {
-                agitateStartTimeSec = nowSec;
-            }
-            double elapsed = nowSec - agitateStartTimeSec;
-            double period = 1.0 / IntakeConstants.kAgitateFrequencyHz;
-            double phase = (elapsed % period) / period;
-            if (phase < 1.0 / 3.0) {
-                targetAngle = IntakeConstants.kAgitateMiddleAngle.div(2);
-            } else if (phase < 2.0 / 3.0) {
-                targetAngle = IntakeConstants.kDeployAngle;
-            } else {
-                targetAngle = IntakeConstants.kAgitateMiddleAngle;
-            }
+            // Hold at the agitate (compression) angle — no oscillation.
+            targetAngle = IntakeConstants.kAgitateMiddleAngle;
         } else if (deployed) {
             targetAngle = IntakeConstants.kDeployAngle;
         } else {
@@ -330,8 +318,15 @@ public class Intake extends SubsystemBase {
         double targetRot = IntakeConstants.pivotAngleToMechanismRotations(targetAngle);
         pivot.setControl(mmRequest.withPosition(targetRot));
 
-        // Roller control
-        double rollerVolts = (deployed || deployHigh || agitating) ? IntakeConstants.kRollerVoltage : 0.0;
+        // Roller control — run slightly slower during agitation to avoid overfeeding
+        double rollerVolts;
+        if (agitating) {
+            rollerVolts = IntakeConstants.kRollerVoltage * IntakeConstants.kAgitateRollerScalar;
+        } else if (deployed || deployHigh) {
+            rollerVolts = IntakeConstants.kRollerVoltage;
+        } else {
+            rollerVolts = 0.0;
+        }
         leftRoller.setControl(rollerVoltageRequest.withOutput(rollerVolts));
 
         // --- Telemetry ---

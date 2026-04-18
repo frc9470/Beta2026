@@ -335,8 +335,6 @@ public class RobotContainer {
     m_autoChooser.addRoutine("leftTrench", m_autos::leftTrench);
     m_autoChooser.addRoutine("rightTrench", m_autos::rightTrench);
     m_autoChooser.addRoutine("shootPreloaded", m_autos::shootPreloaded);
-    m_autoChooser.addRoutine("leftSpeed", m_autos::leftSpeed);
-    m_autoChooser.addRoutine("rightSpeed", m_autos::rightSpeed);
     m_autoChooser.addRoutine("leftBump", m_autos::leftBump);
     m_autoChooser.addRoutine("leftBumpDepot", m_autos::leftBumpDepot);
     m_autoChooser.addRoutine("rightBump", m_autos::rightBump);
@@ -344,6 +342,7 @@ public class RobotContainer {
     m_autoChooser.addRoutine("rightBumpConservative", m_autos::rightBumpConservative);
     m_autoChooser.addRoutine("rightBumpRush", m_autos::rightBumpRush);
     m_autoChooser.addRoutine("leftBumpRush", m_autos::leftBumpRush);
+    m_autoChooser.addCmd("blineTest", m_autos::blineTest);
     m_autoChooser.select("Do Nothing");
     SmartDashboard.putData("AutoChooser", m_autoChooser);
   }

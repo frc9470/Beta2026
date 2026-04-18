@@ -4,13 +4,18 @@ import choreo.auto.AutoFactory;
 import choreo.auto.AutoRoutine;
 import choreo.auto.AutoTrajectory;
 
+import com.team9470.bline.FollowPath;
+import com.team9470.bline.JsonUtils;
+import com.team9470.bline.Path;
 import com.team9470.subsystems.Superstructure;
 import com.team9470.subsystems.swerve.Swerve;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 
 public class Autos {
   private final AutoFactory m_autoFactory;
+  private final FollowPath.Builder m_bLineBuilder;
 
   private static final double kAutoAgitateDelaySec = 1.0;
   private static final double kTrenchShotTimeoutSec = 3.0;
@@ -18,6 +23,16 @@ public class Autos {
 
   public Autos(Swerve swerve) {
     m_autoFactory = swerve.createAutoFactory();
+    m_bLineBuilder = new FollowPath.Builder(
+        swerve,
+        swerve::getPose,
+        swerve::getChassisSpeeds,
+        swerve::setChassisSpeeds,
+        new PIDController(5.0, 0.0, 0.0),  // Translation PID (tune on robot)
+        new PIDController(3.0, 0.0, 0.0),  // Rotation PID (tune on robot)
+        new PIDController(2.0, 0.0, 0.0)   // Cross-track PID (tune on robot)
+    ).withDefaultShouldFlip()
+     .withPoseReset(swerve::resetPose);
   }
 
   /**
@@ -213,5 +228,16 @@ public class Autos {
     bindAutoStaging(firstCycle);
     bindAutoStaging(secondCycle);
     return routine;
+  }
+
+  // ==================== BLINE AUTO ROUTINES ====================
+
+  /**
+   * Simple BLine test auto — drives 2m forward at (1.5, 5.5) → (3.5, 5.5).
+   * Use this to validate BLine integration and PID tuning.
+   */
+  public Command blineTest() {
+    Path testPath = JsonUtils.loadPath("blineTest.json");
+    return m_bLineBuilder.build(testPath).withName("BLine Test");
   }
 }
