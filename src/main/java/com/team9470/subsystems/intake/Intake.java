@@ -55,7 +55,8 @@ public class Intake extends SubsystemBase {
     private boolean deployed = false;
     private boolean deployHigh = false;
     private boolean agitating = false;
-    private boolean needsHoming = true;
+    private boolean awake = false; // Nothing moves until first deploy/agitate
+    private boolean needsHoming = false; // Deferred to manual request (intake can't retract)
     private double homingStallStartTimestampSec = Double.NaN;
     private double agitateStartTimeSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
@@ -66,6 +67,7 @@ public class Intake extends SubsystemBase {
     // Cached SmartDashboard MotionMagic values
     private double cachedMMCruiseVel, cachedMMAccel, cachedMMJerk;
 
+    private static final int STATE_SLEEPING = -1;
     private static final int STATE_HOMING = 0;
     private static final int STATE_RETRACTED = 1;
     private static final int STATE_DEPLOYED = 2;
@@ -92,6 +94,7 @@ public class Intake extends SubsystemBase {
         this.deployed = deployed;
         if (deployed) {
             this.deployHigh = false;
+            this.awake = true;
         }
     }
 
@@ -99,6 +102,7 @@ public class Intake extends SubsystemBase {
         this.deployHigh = deployHigh;
         if (deployHigh) {
             this.deployed = false;
+            this.awake = true;
         }
     }
 
@@ -106,6 +110,7 @@ public class Intake extends SubsystemBase {
         this.agitating = agitating;
         if (agitating) {
             agitateStartTimeSec = Timer.getFPGATimestamp();
+            this.awake = true;
         } else {
             agitateStartTimeSec = Double.NaN;
         }
@@ -225,6 +230,30 @@ public class Intake extends SubsystemBase {
 
     @Override
     public void periodic() {
+        // Sleep until first deploy — no motors run on boot.
+        if (!awake) {
+            pivot.setControl(pivotVoltageRequest.withOutput(0));
+            leftRoller.setControl(rollerVoltageRequest.withOutput(0));
+            telemetry.publishIntakeState(new IntakeSnapshot(
+                    false,
+                    false,
+                    false,
+                    STATE_SLEEPING,
+                    0.0,
+                    0.0,
+                    IntakeConstants.pivotMechanismRotationsToAngle(pivot.getPosition().getValueAsDouble()).in(Radians),
+                    0.0,
+                    0.0,
+                    pivot.getSupplyCurrent().getValueAsDouble(),
+                    pivot.getStatorCurrent().getValueAsDouble(),
+                    0.0,
+                    0.0,
+                    leftRoller.getSupplyCurrent().getValueAsDouble(),
+                    leftRoller.getStatorCurrent().getValueAsDouble(),
+                    rightRoller.getStatorCurrent().getValueAsDouble()));
+            return;
+        }
+
         if (needsHoming) {
             // Drive toward retract hardstop
             pivot.setControl(pivotVoltageRequest.withOutput(IntakeConstants.kHomingVoltage));
@@ -358,7 +387,7 @@ public class Intake extends SubsystemBase {
     // --- Accessors for physics ---
 
     public boolean isRunning() {
-        return deployed || deployHigh || agitating;
+        return awake && (deployed || deployHigh || agitating);
     }
 
     public boolean isDeployed() {

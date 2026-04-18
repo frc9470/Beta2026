@@ -111,6 +111,7 @@ public class Shooter extends SubsystemBase {
     private boolean isFiring = false;
     private boolean needsHoming = true;
     private boolean activeIdleBoost = false;
+    private boolean intakeRunning = false;
     private ShooterCharacterizationSession characterizationSession;
     private ShooterCharacterizationCsvLogger characterizationLogger;
     private ShooterCharacterizationStatus characterizationStatus = ShooterCharacterizationStatus.idle();
@@ -302,6 +303,10 @@ public class Shooter extends SubsystemBase {
         if (targetSpeedRPS > kNonZeroSpeedEpsilonRPS) {
             return targetSpeedRPS;
         }
+        // Only idle-spin when the intake is deployed (game pieces may be incoming).
+        if (!intakeRunning) {
+            return 0.0;
+        }
         return activeIdleBoost ? kBoostedIdleFlywheelRPS : kRestingFlywheelRPS;
     }
 
@@ -312,6 +317,14 @@ public class Shooter extends SubsystemBase {
      */
     public void setActiveIdleBoost(boolean boost) {
         this.activeIdleBoost = boost;
+    }
+
+    /**
+     * Tell the shooter whether the intake is currently running (deployed/agitating).
+     * The flywheel only idles when the intake is active.
+     */
+    public void setIntakeRunning(boolean running) {
+        this.intakeRunning = running;
     }
 
     public void startCharacterization(ShooterCharacterizationConfig config, ShooterCharacterizationMode mode) {

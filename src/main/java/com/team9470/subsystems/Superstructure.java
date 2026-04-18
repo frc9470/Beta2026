@@ -135,6 +135,10 @@ public class Superstructure extends SubsystemBase {
     public void periodic() {
         AutoAim.publishModeTelemetry(poseSupplier.get());
 
+        // Let the shooter know whether the intake is running so it can
+        // decide whether to idle-spin the flywheel.
+        shooter.setIntakeRunning(intake.isRunning());
+
         // Boost flywheel idle speed around the active zone window
         updateActiveIdleBoost();
     }
