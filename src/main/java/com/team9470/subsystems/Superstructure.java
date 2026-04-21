@@ -223,27 +223,33 @@ public class Superstructure extends SubsystemBase {
     private static final double kManualIntakeTapThresholdSec = 0.30;
 
     /**
-     * Manual intake control command (right bumper).
+     * Manual intake control command (right bumper). Tap vs. hold is decided on
+     * release so the two actions never overlap.
      * <ul>
-     *   <li><b>Hold</b>: Stops the intake rollers from spinning.</li>
-     *   <li><b>Tap</b>: Stows the intake (retracts arm, stops rollers).</li>
+     *   <li><b>Tap</b> (release before {@link #kManualIntakeTapThresholdSec}):
+     *       stow the intake. Rollers are never overridden.</li>
+     *   <li><b>Hold</b> (past the threshold): stop the rollers while held; the
+     *       intake pivot stays where it was. No stow on release.</li>
      * </ul>
      */
     public Command manualIntakeControlCommand() {
         Timer holdTimer = new Timer();
-        return Commands.startEnd(
+        return Commands.runEnd(
                 () -> {
-                    holdTimer.restart();
-                    intake.setOverrideStopRollers(true);
+                    if (holdTimer.get() > kManualIntakeTapThresholdSec) {
+                        intake.setOverrideStopRollers(true);
+                    }
                 },
                 () -> {
+                    boolean wasTap = holdTimer.get() <= kManualIntakeTapThresholdSec;
                     intake.setOverrideStopRollers(false);
-                    if (holdTimer.get() <= kManualIntakeTapThresholdSec) {
+                    if (wasTap) {
                         intake.stow();
                     }
                     holdTimer.stop();
                 },
                 intake)
+                .beforeStarting(holdTimer::restart)
                 .withName("Superstructure Manual Intake Control");
     }
 
@@ -268,7 +274,8 @@ public class Superstructure extends SubsystemBase {
                 () -> {
                     shooter.stop();
                     hopper.stop();
-                }).withName("Superstructure Feed");
+                },
+                shooter, hopper).withName("Superstructure Feed");
     }
 
     /**
