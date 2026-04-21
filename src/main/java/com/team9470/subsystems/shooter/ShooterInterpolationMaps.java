@@ -37,12 +37,12 @@ public final class ShooterInterpolationMaps {
 
     private static void loadFeedMap() {
         // Feed map starts from hub-like points and can be tuned independently.
-        addFeedPoint(4.0, 30, 2300.0);
-        addFeedPoint(5.0, 32.0, 2300.0);
-        addFeedPoint(6.0, 35.0, 2550.0);
-        addFeedPoint(7.0, 35.0, 2800.0);
-        addFeedPoint(8.0, 40.0, 3000.0);
-        addFeedPoint(9.0, 45.0, 3200.0);
+        addFeedPoint(4.0, 25.0, 2300.0);
+        addFeedPoint(5.0, 27.0, 2300.0);
+        addFeedPoint(6.0, 30.0, 2550.0);
+        addFeedPoint(7.0, 30.0, 2800.0);
+        addFeedPoint(8.0, 35.0, 3000.0);
+        addFeedPoint(9.0, 40.0, 3200.0);
 
     }
 
