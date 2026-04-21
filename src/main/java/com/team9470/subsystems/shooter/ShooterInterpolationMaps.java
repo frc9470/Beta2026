@@ -24,15 +24,15 @@ public final class ShooterInterpolationMaps {
     }
 
     private static void loadHubMap() {
-        addHubPoint(1.0, 17.0, 1800.0); // center doesn't work
-        addHubPoint(1.5, 19.0, 1900.0);
-        addHubPoint(2.0, 23.0, 1950.0);
-        addHubPoint(2.5, 27.0, 2130.0);
-        addHubPoint(3.0, 32.0, 2150.0);
-        addHubPoint(3.5, 37.0, 2250.0);
-        addHubPoint(4.0, 40.0, 2300.0);
-        addHubPoint(4.5, 40.0, 2400.0);
-        addHubPoint(5.0, 42.0, 2550.0);
+        addHubPoint(1.0, 15.0, 1800.0); // center doesn't work
+        addHubPoint(1.5, 17.0, 1900.0);
+        addHubPoint(2.0, 21.0, 1950.0);
+        addHubPoint(2.5, 25.0, 2130.0);
+        addHubPoint(3.0, 30.0, 2150.0);
+        addHubPoint(3.5, 35.0, 2250.0);
+        addHubPoint(4.0, 38.0, 2300.0);
+        addHubPoint(4.5, 38.0, 2400.0);
+        addHubPoint(5.0, 40.0, 2550.0);
     }
 
     private static void loadFeedMap() {
