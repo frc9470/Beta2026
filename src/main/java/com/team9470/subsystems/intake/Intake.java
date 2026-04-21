@@ -55,6 +55,7 @@ public class Intake extends SubsystemBase {
     private boolean deployed = false;
     private boolean deployHigh = false;
     private boolean agitating = false;
+    private boolean overrideStopRollers = false;
     private boolean awake = false; // Nothing moves until first deploy/agitate
     private boolean needsHoming = false; // Deferred to manual request (intake can't retract)
     private double homingStallStartTimestampSec = Double.NaN;
@@ -114,6 +115,24 @@ public class Intake extends SubsystemBase {
         } else {
             agitateStartTimeSec = Double.NaN;
         }
+    }
+
+    /**
+     * Override that forces roller voltage to zero without changing deploy state.
+     * Used by the manual intake control button.
+     */
+    public void setOverrideStopRollers(boolean override) {
+        this.overrideStopRollers = override;
+    }
+
+    /**
+     * Stow the intake fully — clears deploy, deploy-high, and agitate flags.
+     */
+    public void stow() {
+        deployed = false;
+        deployHigh = false;
+        agitating = false;
+        agitateStartTimeSec = Double.NaN;
     }
 
     /**
@@ -320,7 +339,9 @@ public class Intake extends SubsystemBase {
 
         // Roller control — run slightly slower during agitation to avoid overfeeding
         double rollerVolts;
-        if (agitating) {
+        if (overrideStopRollers) {
+            rollerVolts = 0.0;
+        } else if (agitating) {
             rollerVolts = IntakeConstants.kRollerVoltage * IntakeConstants.kAgitateRollerScalar;
         } else if (deployed || deployHigh) {
             rollerVolts = IntakeConstants.kRollerVoltage;

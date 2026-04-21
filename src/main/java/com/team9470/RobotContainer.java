@@ -195,12 +195,8 @@ public class RobotContainer {
     // Left Bumper: Toggle intake deployed/retracted
     m_driverController.leftBumper().onTrue(m_superstructure.toggleIntakeCommand());
 
-    // Right Bumper: Stage a note normally, or run the full shooter characterization
-    // in
-    // Test mode.
-    nonTestModeTrigger(m_driverController.rightBumper()).onTrue(m_superstructure.stagePreloadCommand());
-    testModeTrigger(m_driverController.rightBumper()).onTrue(
-        createFullShooterCharacterizationCommand("Shooter Full Characterization"));
+    // Right Bumper: Manual intake control (hold = stop rollers, tap = stow)
+    m_driverController.rightBumper().whileTrue(m_superstructure.manualIntakeControlCommand());
 
     // ==================== FACE BUTTONS ====================
 

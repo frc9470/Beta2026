@@ -219,6 +219,34 @@ public class Superstructure extends SubsystemBase {
                 .withName("Superstructure Outtake");
     }
 
+    /** Threshold in seconds: presses shorter than this are treated as a tap. */
+    private static final double kManualIntakeTapThresholdSec = 0.30;
+
+    /**
+     * Manual intake control command (right bumper).
+     * <ul>
+     *   <li><b>Hold</b>: Stops the intake rollers from spinning.</li>
+     *   <li><b>Tap</b>: Stows the intake (retracts arm, stops rollers).</li>
+     * </ul>
+     */
+    public Command manualIntakeControlCommand() {
+        Timer holdTimer = new Timer();
+        return Commands.startEnd(
+                () -> {
+                    holdTimer.restart();
+                    intake.setOverrideStopRollers(true);
+                },
+                () -> {
+                    intake.setOverrideStopRollers(false);
+                    if (holdTimer.get() <= kManualIntakeTapThresholdSec) {
+                        intake.stow();
+                    }
+                    holdTimer.stop();
+                },
+                intake)
+                .withName("Superstructure Manual Intake Control");
+    }
+
     /**
      * Feed command - spins shooter at 500 RPM with max hood angle and feeds game
      * pieces.
