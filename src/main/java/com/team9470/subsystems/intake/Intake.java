@@ -56,8 +56,8 @@ public class Intake extends SubsystemBase {
     private boolean deployHigh = false;
     private boolean agitating = false;
     private boolean overrideStopRollers = false;
-    private boolean awake = false; // Nothing moves until first deploy/agitate
-    private boolean needsHoming = false; // Deferred to manual request (intake can't retract)
+    private boolean awake = true; // Start awake so homing runs immediately
+    private boolean needsHoming = true; // Auto-home on boot
     private double homingStallStartTimestampSec = Double.NaN;
     private double agitateStartTimeSec = Double.NaN;
     private final TelemetryManager telemetry = TelemetryManager.getInstance();
@@ -83,7 +83,8 @@ public class Intake extends SubsystemBase {
         TalonUtil.applyAndCheckConfiguration(leftRoller, IntakeConstants.kLeftRollerConfig);
         TalonUtil.applyAndCheckConfiguration(rightRoller, IntakeConstants.kRightRollerConfig);
 
-        // rightRoller follows leftRoller with opposed direction (they have opposite inversions)
+        // rightRoller follows leftRoller with opposed direction (they have opposite
+        // inversions)
         rightRoller.setControl(new Follower(leftRoller.getDeviceID(), MotorAlignmentValue.Opposed));
 
         initSmartDashboardGains();
@@ -95,6 +96,8 @@ public class Intake extends SubsystemBase {
         this.deployed = deployed;
         if (deployed) {
             this.deployHigh = false;
+            this.agitating = false;
+            this.agitateStartTimeSec = Double.NaN;
             this.awake = true;
         }
     }
@@ -103,6 +106,8 @@ public class Intake extends SubsystemBase {
         this.deployHigh = deployHigh;
         if (deployHigh) {
             this.deployed = false;
+            this.agitating = false;
+            this.agitateStartTimeSec = Double.NaN;
             this.awake = true;
         }
     }
@@ -110,6 +115,8 @@ public class Intake extends SubsystemBase {
     public void setAgitating(boolean agitating) {
         this.agitating = agitating;
         if (agitating) {
+            this.deployed = false;
+            this.deployHigh = false;
             agitateStartTimeSec = Timer.getFPGATimestamp();
             this.awake = true;
         } else {
@@ -163,7 +170,10 @@ public class Intake extends SubsystemBase {
     public Command getAgitateCommand() {
         return this.startEnd(
                 () -> setAgitating(true),
-                () -> { setAgitating(false); setDeployed(true); })
+                () -> {
+                    setAgitating(false);
+                    setDeployed(true);
+                })
                 .withName("Intake Agitate");
     }
 
@@ -327,8 +337,22 @@ public class Intake extends SubsystemBase {
         if (deployHigh) {
             targetAngle = IntakeConstants.kDeployHighAngle;
         } else if (agitating) {
-            // Hold at the agitate (compression) angle — no oscillation.
-            targetAngle = IntakeConstants.kAgitateMiddleAngle;
+            // Stepped agitation: 1/4 → pause → 1/2 → pause → 3/4 → pause → full
+            double elapsed = Timer.getFPGATimestamp() - agitateStartTimeSec;
+            double stepPause = IntakeConstants.kAgitateStepPauseSec;
+            double deployDeg = IntakeConstants.kDeployAngle.in(Degrees);
+            double agitateDeg = IntakeConstants.kAgitateMiddleAngle.in(Degrees);
+            double fraction;
+            if (elapsed < stepPause) {
+                fraction = 0.25;
+            } else if (elapsed < stepPause * 2) {
+                fraction = 0.50;
+            } else if (elapsed < stepPause * 3) {
+                fraction = 0.75;
+            } else {
+                fraction = 1.0;
+            }
+            targetAngle = Degrees.of(deployDeg + (agitateDeg - deployDeg) * fraction);
         } else if (deployed) {
             targetAngle = IntakeConstants.kDeployAngle;
         } else {
