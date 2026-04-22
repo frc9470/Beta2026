@@ -26,7 +26,7 @@ public class HopperConstants {
                                 .withSupplyCurrentLimit(kRollerSupplyCurrentLimit)
                                 .withSupplyCurrentLimitEnable(true);
 
-                kFeederLeftConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+                kFeederLeftConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
                 kFeederLeftConfig.MotorOutput.Inverted = InvertedValue.CounterClockwise_Positive;
                 kFeederLeftConfig.CurrentLimits
                                 .withSupplyCurrentLimitEnable(false)
@@ -34,7 +34,7 @@ public class HopperConstants {
                                 .withStatorCurrentLimitEnable(true);
 
                 // Right feeder motor config (opposite orientation to left motor)
-                kFeederRightConfig.MotorOutput.NeutralMode = NeutralModeValue.Coast;
+                kFeederRightConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
                 kFeederRightConfig.MotorOutput.Inverted = InvertedValue.Clockwise_Positive;
                 kFeederRightConfig.CurrentLimits
                                 .withSupplyCurrentLimitEnable(false)

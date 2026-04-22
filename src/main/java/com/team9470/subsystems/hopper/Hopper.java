@@ -58,6 +58,7 @@ public class Hopper extends SubsystemBase {
     // Status signals
     private final StatusSignal<AngularVelocity> hopperVelocity;
     private final StatusSignal<Current> hopperCurrent;
+    private final StatusSignal<Current> hopperStatorCurrent;
     private final StatusSignal<AngularVelocity> feederLeftVelocity;
     private final StatusSignal<Current> feederLeftSupplyCurrent;
     private final StatusSignal<Current> feederLeftStatorCurrent;
@@ -85,6 +86,7 @@ public class Hopper extends SubsystemBase {
         // Status signals
         hopperVelocity = hopperMotor.getVelocity();
         hopperCurrent = hopperMotor.getSupplyCurrent();
+        hopperStatorCurrent = hopperMotor.getStatorCurrent();
         feederLeftVelocity = feederLeftMotor.getVelocity();
         feederLeftSupplyCurrent = feederLeftMotor.getSupplyCurrent();
         feederLeftStatorCurrent = feederLeftMotor.getStatorCurrent();
@@ -98,6 +100,7 @@ public class Hopper extends SubsystemBase {
                 50,
                 hopperVelocity,
                 hopperCurrent,
+                hopperStatorCurrent,
                 feederLeftVelocity,
                 feederLeftSupplyCurrent,
                 feederLeftStatorCurrent,
@@ -120,6 +123,7 @@ public class Hopper extends SubsystemBase {
         BaseStatusSignal.refreshAll(
                 hopperVelocity,
                 hopperCurrent,
+                hopperStatorCurrent,
                 feederLeftVelocity,
                 feederLeftSupplyCurrent,
                 feederLeftStatorCurrent,
@@ -217,6 +221,14 @@ public class Hopper extends SubsystemBase {
 
     public double getFeederLeftVelocityRps() {
         return feederLeftVelocity.getValueAsDouble();
+    }
+
+    public double getHopperVelocityRps() {
+        return hopperVelocity.getValueAsDouble();
+    }
+
+    public double getHopperStatorCurrentAmps() {
+        return hopperStatorCurrent.getValueAsDouble();
     }
 
     public double getFeederRightVelocityRps() {

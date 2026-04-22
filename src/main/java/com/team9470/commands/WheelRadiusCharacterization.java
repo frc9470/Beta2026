@@ -23,7 +23,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 public class WheelRadiusCharacterization extends Command {
 
     /** Distance from robot center to each swerve module (modules at ±11 in). */
-    private static final double DRIVE_BASE_RADIUS = Math.hypot(Units.inchesToMeters(11), Units.inchesToMeters(11));
+    private static final double DRIVE_BASE_RADIUS = Math.hypot(Units.inchesToMeters(10.875), Units.inchesToMeters(10.875));
 
     /** Slow rotation speed (rad/s). Keep low to avoid wheel slip. */
     private static final double CHARACTERIZATION_SPEED = 1.0;

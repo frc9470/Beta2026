@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
 import com.team9470.telemetry.structs.DriveStatusSnapshot;
+import com.team9470.telemetry.structs.HopperAutoStageSnapshot;
 import com.team9470.telemetry.structs.HopperPreloadSnapshot;
 import com.team9470.telemetry.structs.HopperSnapshot;
 import com.team9470.telemetry.structs.IntakeSnapshot;
@@ -98,6 +99,26 @@ class SnapshotStructsTest {
     @Test
     void hopperPreloadRoundTrip() {
         assertRoundTrip(HopperPreloadSnapshot.struct, new HopperPreloadSnapshot(true, 3, 2));
+    }
+
+    @Test
+    void hopperAutoStageRoundTrip() {
+        assertRoundTrip(HopperAutoStageSnapshot.struct,
+                new HopperAutoStageSnapshot(
+                        true,
+                        false,
+                        false,
+                        true,
+                        false,
+                        true,
+                        true,
+                        4,
+                        13,
+                        0.42,
+                        21.0,
+                        0.33,
+                        14.5,
+                        2.75));
     }
 
     @Test

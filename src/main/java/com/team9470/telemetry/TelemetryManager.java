@@ -3,8 +3,9 @@ package com.team9470.telemetry;
 import com.team9470.FieldConstants;
 import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
 import com.team9470.telemetry.structs.DriveStatusSnapshot;
-import com.team9470.telemetry.structs.HopperSnapshot;
+import com.team9470.telemetry.structs.HopperAutoStageSnapshot;
 import com.team9470.telemetry.structs.HopperPreloadSnapshot;
+import com.team9470.telemetry.structs.HopperSnapshot;
 import com.team9470.telemetry.structs.IntakeSnapshot;
 import com.team9470.telemetry.structs.PracticeTimerSnapshot;
 import com.team9470.telemetry.structs.ShotReleaseSnapshot;
@@ -186,6 +187,13 @@ public final class TelemetryManager {
             hopperFeederRightTable, "StatorCurrentAmps", "A");
     private final DoublePublisher hopperFeederRightAppliedVoltsPublisher = TelemetryUtil.publishDouble(
             hopperFeederRightTable, "AppliedVolts", "V");
+    private final NetworkTable hopperAutoStageTable = hopperTable.getSubTable("AutoStage");
+    private final StructPublisher<HopperAutoStageSnapshot> hopperAutoStagePublisher = hopperAutoStageTable
+            .getStructTopic("State", HopperAutoStageSnapshot.struct).publish();
+    private final StringPublisher hopperAutoStagePhaseLabelPublisher = hopperAutoStageTable
+            .getStringTopic("PhaseLabel").publish();
+    private final StringPublisher hopperAutoStageReasonLabelPublisher = hopperAutoStageTable
+            .getStringTopic("ReasonLabel").publish();
 
     private final NetworkTable superstructureTable = telemetryTable.getSubTable("Superstructure");
     private final StructPublisher<SuperstructureSnapshot> superstructureStatePublisher = superstructureTable
@@ -407,6 +415,15 @@ public final class TelemetryManager {
 
     public void publishHopperPreloadState(HopperPreloadSnapshot snapshot) {
         hopperPreloadPublisher.set(snapshot);
+    }
+
+    public void publishHopperAutoStageState(
+            HopperAutoStageSnapshot snapshot,
+            String phaseLabel,
+            String reasonLabel) {
+        hopperAutoStagePublisher.set(snapshot);
+        hopperAutoStagePhaseLabelPublisher.set(phaseLabel);
+        hopperAutoStageReasonLabelPublisher.set(reasonLabel);
     }
 
     public void publishHopperFeederState(

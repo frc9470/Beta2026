@@ -195,8 +195,11 @@ public class RobotContainer {
     // Left Bumper: Toggle intake deployed/retracted
     m_driverController.leftBumper().onTrue(m_superstructure.toggleIntakeCommand());
 
-    // Right Bumper: Manual intake control (hold = stop rollers, tap = stow)
-    m_driverController.rightBumper().whileTrue(m_superstructure.manualIntakeControlCommand());
+    // Right Bumper: Manual preload stage
+    m_driverController.rightBumper().onTrue(m_superstructure.stagePreloadCommand());
+
+    new Trigger(m_superstructure::shouldStartAutoStageProbe)
+        .onTrue(m_superstructure.autoStageProbeCommand());
 
     // ==================== FACE BUTTONS ====================
 

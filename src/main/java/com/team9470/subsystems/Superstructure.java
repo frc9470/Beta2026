@@ -7,6 +7,7 @@ import com.team9470.subsystems.shooter.Shooter;
 import com.team9470.subsystems.shooter.ShooterConstants;
 import com.team9470.telemetry.MatchTimingService;
 import com.team9470.telemetry.TelemetryManager;
+import com.team9470.telemetry.structs.HopperAutoStageSnapshot;
 import com.team9470.telemetry.structs.HopperPreloadSnapshot;
 import com.team9470.telemetry.structs.ShotReleaseSnapshot;
 import com.team9470.telemetry.structs.SuperstructureSnapshot;
@@ -18,14 +19,14 @@ import com.team9470.util.TimedFirePolicy;
 import com.team9470.subsystems.swerve.Swerve;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.filter.LinearFilter;
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.Subsystem;
@@ -61,15 +62,12 @@ public class Superstructure extends SubsystemBase {
     // Context suppliers (set by RobotContainer)
     private Supplier<Pose2d> poseSupplier = () -> new Pose2d();
     private Supplier<ChassisSpeeds> speedsSupplier = () -> new ChassisSpeeds();
-    private static final double kControlLoopDtSec = 0.02;
-    private static final double kAimKp = 10.0;
-    private static final double kAimKd = 0.7;
-    private static final double kAimAlignmentToleranceRad = Math.toRadians(5.0);
-    private static final double kAimLatchedAlignmentToleranceRad = Math.toRadians(15.0);
+    private static final double kAimKpDefault = 12.0;
+    private static final double kAimKiDefault = 0.0;
+    private static final double kAimKdDefault = 1.0;
+    private static final double kAimAlignmentToleranceRadDefault = Math.toRadians(2.5);
+    private static final double kAimMaxIntegralContributionRadPerSecDefault = Math.toRadians(25.0);
     private static final double kAimMaxAngularRateRadPerSec = Math.toRadians(TunerConstants.maxAngularVelocity);
-    private static final double kDriveAngleDerivativeFilterWindowSec = 1.5;
-    private static final double kHoodDerivativeFilterWindowSec = 0.4;
-    private static final double kFlywheelDerivativeFilterWindowSec = 0.4;
     private static final double kShootMaxPolarVelocityRadPerSec = 0.5;
     private static final double kShootVelocityLimitMinRequestMps = 0.15;
     private static final double kSotmFireSafetyMinSpeedMps = 0.35;
@@ -97,17 +95,85 @@ public class Superstructure extends SubsystemBase {
     private static final int PRELOAD_FAULT_NONE = 0;
     private static final int PRELOAD_FAULT_TIMEOUT = 1;
     private static final int PRELOAD_FAULT_JAM = 2;
+    private static final String kAutoStageEnabledKey = "Debug/HopperAutoStage/Enabled";
+    private static final String kAutoStageProbeVoltsKey = "Debug/HopperAutoStage/ProbeVolts";
+    private static final String kAutoStageProbeBaselineSecKey = "Debug/HopperAutoStage/ProbeBaselineSec";
+    private static final String kAutoStageProbePulseSecKey = "Debug/HopperAutoStage/ProbePulseSec";
+    private static final String kAutoStageProbeCurrentThresholdKey = "Debug/HopperAutoStage/ProbeCurrentThresholdAmps";
+    private static final String kAutoStageProbeVelocityThresholdKey = "Debug/HopperAutoStage/ProbeVelocityThresholdRps";
+    private static final String kAutoStageIntakeCurrentThresholdKey = "Debug/HopperAutoStage/IntakeCurrentThresholdAmps";
+    private static final String kAutoStageLoadScoreThresholdKey = "Debug/HopperAutoStage/LoadScoreThresholdSec";
+    private static final String kAutoStageLoadScoreDecayKey = "Debug/HopperAutoStage/LoadScoreDecayPerSec";
+    private static final String kAutoStageQuietTimeSecKey = "Debug/HopperAutoStage/QuietTimeSec";
+    private static final String kAutoStageCooldownSecKey = "Debug/HopperAutoStage/CooldownSec";
+    private static final boolean kAutoStageEnabledDefault = true;
+    private static final double kAutoStageProbeVoltsDefault = -2.5;
+    private static final double kAutoStageProbeBaselineSecDefault = 0.08;
+    private static final double kAutoStageProbePulseSecDefault = 0.20;
+    private static final double kAutoStageProbeCurrentThresholdAmpsDefault = 12.0;
+    private static final double kAutoStageProbeVelocityThresholdRpsDefault = 4.0;
+    private static final double kAutoStageIntakeCurrentThresholdAmpsDefault = 18.0;
+    private static final double kAutoStageLoadScoreThresholdSecDefault = 0.35;
+    private static final double kAutoStageLoadScoreDecayPerSecDefault = 0.20;
+    private static final double kAutoStageQuietTimeSecDefault = 0.25;
+    private static final double kAutoStageCooldownSecDefault = 1.50;
+    private static final double kAutoStageLoadScoreMaxSec = 3.0;
+    private static final int AUTO_STAGE_PHASE_IDLE = 0;
+    private static final int AUTO_STAGE_PHASE_READY = 1;
+    private static final int AUTO_STAGE_PHASE_PROBE_BASELINE = 2;
+    private static final int AUTO_STAGE_PHASE_PROBE_PULSE = 3;
+    private static final int AUTO_STAGE_PHASE_STAGE_COMMAND = 4;
+    private static final int AUTO_STAGE_PHASE_COMPLETE = 5;
+    private static final int AUTO_STAGE_REASON_NONE = 0;
+    private static final int AUTO_STAGE_REASON_DISABLED = 1;
+    private static final int AUTO_STAGE_REASON_NOT_TELEOP = 2;
+    private static final int AUTO_STAGE_REASON_SUPERSTRUCTURE_BUSY = 3;
+    private static final int AUTO_STAGE_REASON_HOPPER_BUSY = 4;
+    private static final int AUTO_STAGE_REASON_SHOOTER_FIRING = 5;
+    private static final int AUTO_STAGE_REASON_AGITATING = 6;
+    private static final int AUTO_STAGE_REASON_TOP_BLOCKED = 7;
+    private static final int AUTO_STAGE_REASON_EVIDENCE_LOW = 8;
+    private static final int AUTO_STAGE_REASON_WAITING_FOR_QUIET = 9;
+    private static final int AUTO_STAGE_REASON_COOLDOWN = 10;
+    private static final int AUTO_STAGE_REASON_PROBE_RUNNING = 11;
+    private static final int AUTO_STAGE_REASON_PROBE_REJECTED = 12;
+    private static final int AUTO_STAGE_REASON_STAGE_REQUESTED = 13;
 
     /** Seconds before / after the active zone to keep the flywheel boosted. */
     private static final double kIdleBoostPaddingSec = 3.0;
 
-    private LinearFilter driveAngleRateFilter = createMovingAverageFilter(kDriveAngleDerivativeFilterWindowSec);
-    private LinearFilter hoodRateFilter = createMovingAverageFilter(kHoodDerivativeFilterWindowSec);
-    private LinearFilter flywheelRateFilter = createMovingAverageFilter(kFlywheelDerivativeFilterWindowSec);
-    private boolean derivativeStateInitialized = false;
-    private Rotation2d lastTargetYaw = new Rotation2d();
-    private double lastHoodCommandDeg = 0.0;
-    private double lastFlywheelRpm = 0.0;
+    private final PIDController aimYawController = createAimYawController();
+    private double cachedAimKp = kAimKpDefault;
+    private double cachedAimKi = kAimKiDefault;
+    private double cachedAimKd = kAimKdDefault;
+    private double cachedAimAlignmentToleranceDeg = Math.toDegrees(kAimAlignmentToleranceRadDefault);
+    private double cachedAimMaxIntegralContributionDegPerSec =
+            Math.toDegrees(kAimMaxIntegralContributionRadPerSecDefault);
+    private double aimAlignmentToleranceRad = kAimAlignmentToleranceRadDefault;
+    private boolean autoStageEnabled = kAutoStageEnabledDefault;
+    private double autoStageProbeVolts = kAutoStageProbeVoltsDefault;
+    private double autoStageProbeBaselineSec = kAutoStageProbeBaselineSecDefault;
+    private double autoStageProbePulseSec = kAutoStageProbePulseSecDefault;
+    private double autoStageProbeCurrentThresholdAmps = kAutoStageProbeCurrentThresholdAmpsDefault;
+    private double autoStageProbeVelocityThresholdRps = kAutoStageProbeVelocityThresholdRpsDefault;
+    private double autoStageIntakeCurrentThresholdAmps = kAutoStageIntakeCurrentThresholdAmpsDefault;
+    private double autoStageLoadScoreThresholdSec = kAutoStageLoadScoreThresholdSecDefault;
+    private double autoStageLoadScoreDecayPerSec = kAutoStageLoadScoreDecayPerSecDefault;
+    private double autoStageQuietTimeSec = kAutoStageQuietTimeSecDefault;
+    private double autoStageCooldownSec = kAutoStageCooldownSecDefault;
+    private double autoStageLoadScoreSec = 0.0;
+    private double autoStageIntakeRollerCurrentAmps = 0.0;
+    private double autoStageProbeAverageCurrentAmps = 0.0;
+    private double autoStageProbeAverageVelocityRps = 0.0;
+    private double lastAutoStageMonitorSec = Double.NaN;
+    private double lastAutoStageLoadEventSec = Double.NEGATIVE_INFINITY;
+    private double lastAutoStageActionSec = Double.NEGATIVE_INFINITY;
+    private boolean autoStageReadyToProbe = false;
+    private boolean autoStageCommandActive = false;
+    private boolean autoStageLastProbePassed = false;
+    private boolean autoStageLastProbeTriggeredStage = false;
+    private int autoStagePhaseCode = AUTO_STAGE_PHASE_IDLE;
+    private int autoStageReasonCode = AUTO_STAGE_REASON_DISABLED;
     private String lastReleaseBlockReason = "NoBlockRecordedYet";
     /** FPGA timestamp when the zone was last active, for the post-active cooldown. */
     private double lastZoneActiveSec = Double.NEGATIVE_INFINITY;
@@ -116,6 +182,8 @@ public class Superstructure extends SubsystemBase {
         shooter = new Shooter();
         intake = Intake.getInstance();
         hopper = Hopper.getInstance();
+        initSmartDashboardAimTuning();
+        initSmartDashboardAutoStageTuning();
         publishPreloadState(false, PRELOAD_PHASE_IDLE, PRELOAD_FAULT_NONE);
         resetTimedShotState();
         telemetry.publishSuperstructureReleaseBlock(false, lastReleaseBlockReason);
@@ -133,10 +201,14 @@ public class Superstructure extends SubsystemBase {
 
     @Override
     public void periodic() {
+        double nowSec = Timer.getFPGATimestamp();
         AutoAim.publishModeTelemetry(poseSupplier.get());
 
         // Boost flywheel idle speed around the active zone window
         updateActiveIdleBoost();
+        updateSmartDashboardAimTuning();
+        updateSmartDashboardAutoStageTuning();
+        updateAutoStageMonitor(nowSec);
     }
 
     /**
@@ -297,6 +369,112 @@ public class Superstructure extends SubsystemBase {
         return stagePreloadCommand(false);
     }
 
+    public boolean shouldStartAutoStageProbe() {
+        return autoStageReadyToProbe;
+    }
+
+    public Command autoStageProbeCommand() {
+        final int[] probePhaseCode = { AUTO_STAGE_PHASE_PROBE_BASELINE };
+        final boolean[] finished = { false };
+        final boolean[] shouldStage = { false };
+        final double[] phaseStartSec = { Double.NaN };
+        final double[] lastSampleSec = { Double.NaN };
+        final double[] pulseAccumSec = { 0.0 };
+        final double[] pulseCurrentIntegral = { 0.0 };
+        final double[] pulseVelocityIntegral = { 0.0 };
+
+        Command probeCommand = Commands.run(() -> {
+            double nowSec = Timer.getFPGATimestamp();
+            double dtSec = Double.isFinite(lastSampleSec[0]) ? Math.max(0.0, nowSec - lastSampleSec[0]) : 0.0;
+            lastSampleSec[0] = nowSec;
+
+            if (hopper.isTopBeamBreakBlocked()) {
+                autoStageReasonCode = AUTO_STAGE_REASON_TOP_BLOCKED;
+                autoStagePhaseCode = AUTO_STAGE_PHASE_COMPLETE;
+                autoStageLoadScoreSec = 0.0;
+                finished[0] = true;
+                return;
+            }
+
+            if (probePhaseCode[0] == AUTO_STAGE_PHASE_PROBE_BASELINE) {
+                hopper.stopAll();
+                if (nowSec - phaseStartSec[0] >= autoStageProbeBaselineSec) {
+                    probePhaseCode[0] = AUTO_STAGE_PHASE_PROBE_PULSE;
+                    phaseStartSec[0] = nowSec;
+                    autoStagePhaseCode = AUTO_STAGE_PHASE_PROBE_PULSE;
+                }
+                return;
+            }
+
+            hopper.setHopperVoltage(autoStageProbeVolts);
+            hopper.setFeederVoltage(0.0);
+            if (dtSec > 0.0) {
+                pulseAccumSec[0] += dtSec;
+                pulseCurrentIntegral[0] += Math.abs(hopper.getHopperStatorCurrentAmps()) * dtSec;
+                pulseVelocityIntegral[0] += Math.abs(hopper.getHopperVelocityRps()) * dtSec;
+                autoStageProbeAverageCurrentAmps = pulseCurrentIntegral[0] / pulseAccumSec[0];
+                autoStageProbeAverageVelocityRps = pulseVelocityIntegral[0] / pulseAccumSec[0];
+            }
+
+            if (nowSec - phaseStartSec[0] >= autoStageProbePulseSec) {
+                autoStageLastProbePassed = shouldRequestAutoStageFromProbe(
+                        autoStageProbeAverageCurrentAmps,
+                        autoStageProbeAverageVelocityRps,
+                        autoStageProbeCurrentThresholdAmps,
+                        autoStageProbeVelocityThresholdRps);
+                shouldStage[0] = autoStageLastProbePassed;
+                autoStageLoadScoreSec = autoStageLastProbePassed ? 0.0 : autoStageLoadScoreSec * 0.5;
+                autoStageReasonCode = autoStageLastProbePassed
+                        ? AUTO_STAGE_REASON_STAGE_REQUESTED
+                        : AUTO_STAGE_REASON_PROBE_REJECTED;
+                autoStagePhaseCode = AUTO_STAGE_PHASE_COMPLETE;
+                finished[0] = true;
+            }
+        }, this, hopper).beforeStarting(() -> {
+            double nowSec = Timer.getFPGATimestamp();
+            autoStageCommandActive = true;
+            autoStageReadyToProbe = false;
+            autoStageLastProbePassed = false;
+            autoStageLastProbeTriggeredStage = false;
+            autoStageProbeAverageCurrentAmps = 0.0;
+            autoStageProbeAverageVelocityRps = 0.0;
+            autoStagePhaseCode = AUTO_STAGE_PHASE_PROBE_BASELINE;
+            autoStageReasonCode = AUTO_STAGE_REASON_PROBE_RUNNING;
+            probePhaseCode[0] = AUTO_STAGE_PHASE_PROBE_BASELINE;
+            phaseStartSec[0] = nowSec;
+            lastSampleSec[0] = nowSec;
+            pulseAccumSec[0] = 0.0;
+            pulseCurrentIntegral[0] = 0.0;
+            pulseVelocityIntegral[0] = 0.0;
+            finished[0] = false;
+            shouldStage[0] = false;
+            hopper.stopAll();
+        }).until(() -> finished[0]);
+
+        Command maybeStageCommand = Commands.either(
+                Commands.sequence(
+                        Commands.runOnce(() -> {
+                            autoStagePhaseCode = AUTO_STAGE_PHASE_STAGE_COMMAND;
+                            autoStageReasonCode = AUTO_STAGE_REASON_STAGE_REQUESTED;
+                            autoStageLastProbeTriggeredStage = true;
+                        }, this, hopper),
+                        stagePreloadCommand()),
+                Commands.none(),
+                () -> shouldStage[0]);
+
+        return Commands.sequence(probeCommand, maybeStageCommand)
+                .finallyDo(interrupted -> {
+                    hopper.stopAll();
+                    autoStageReadyToProbe = false;
+                    autoStageCommandActive = false;
+                    if (interrupted) {
+                        autoStagePhaseCode = AUTO_STAGE_PHASE_COMPLETE;
+                        autoStageReasonCode = AUTO_STAGE_REASON_SUPERSTRUCTURE_BUSY;
+                    }
+                    lastAutoStageActionSec = Timer.getFPGATimestamp();
+                }).withName("Superstructure AutoStageProbe");
+    }
+
     private Command stagePreloadCommand(boolean reserveSuperstructure) {
         final int[] phaseCode = { PRELOAD_PHASE_IDLE };
         final int[] faultCode = { PRELOAD_FAULT_NONE };
@@ -397,34 +575,23 @@ public class Superstructure extends SubsystemBase {
 
     public AimResult getAimResult(Pose2d robotPose, ChassisSpeeds robotSpeeds, boolean useRobotSideForFeedTarget) {
         var solution = AutoAim.calculate(robotPose, robotSpeeds, useRobotSideForFeedTarget);
-        AimSetpointDerivatives derivatives = computeFilteredSetpointDerivatives(solution);
         double rotError = solution.targetRobotYaw()
                 .minus(robotPose.getRotation())
                 .getRadians();
-        double driveSetpointRateRadPerSec = derivatives.driveAngleRateRadPerSec();
-        double rotCmd = driveSetpointRateRadPerSec
-                + (rotError * kAimKp)
-                + ((driveSetpointRateRadPerSec - robotSpeeds.omegaRadiansPerSecond) * kAimKd);
+        double rotCmd = solution.targetOmega()
+                + aimYawController.calculate(
+                        robotPose.getRotation().getRadians(),
+                        solution.targetRobotYaw().getRadians());
         rotCmd = MathUtil.clamp(rotCmd, -kAimMaxAngularRateRadPerSec, kAimMaxAngularRateRadPerSec);
-        boolean isAligned = Math.abs(rotError) < kAimAlignmentToleranceRad;
+        boolean isAligned = Math.abs(rotError) < aimAlignmentToleranceRad;
 
-        return new AimResult(rotCmd, isAligned, rotError, derivatives, solution);
-    }
-
-    /**
-     * Result of aiming calculation for swerve to use.
-     */
-    public record AimSetpointDerivatives(
-            double driveAngleRateRadPerSec,
-            double hoodRateDegPerSec,
-            double flywheelRateRpmPerSec) {
+        return new AimResult(rotCmd, isAligned, rotError, solution);
     }
 
     public record AimResult(
             double rotationCommand,
             boolean isAligned,
             double rotationErrorRad,
-            AimSetpointDerivatives derivatives,
             AutoAim.ShootingSolution solution) {
     }
 
@@ -455,47 +622,210 @@ public class Superstructure extends SubsystemBase {
             boolean shotIsFeedMode) {
     }
 
-    private static LinearFilter createMovingAverageFilter(double windowSec) {
-        int taps = Math.max(1, (int) Math.round(windowSec / kControlLoopDtSec));
-        return LinearFilter.movingAverage(taps);
+    private static PIDController createAimYawController() {
+        PIDController controller = new PIDController(kAimKpDefault, kAimKiDefault, kAimKdDefault);
+        controller.enableContinuousInput(-Math.PI, Math.PI);
+        controller.setIntegratorRange(
+                -kAimMaxIntegralContributionRadPerSecDefault,
+                kAimMaxIntegralContributionRadPerSecDefault);
+        return controller;
     }
 
-    private void resetAimSetpointDerivatives() {
-        driveAngleRateFilter = createMovingAverageFilter(kDriveAngleDerivativeFilterWindowSec);
-        hoodRateFilter = createMovingAverageFilter(kHoodDerivativeFilterWindowSec);
-        flywheelRateFilter = createMovingAverageFilter(kFlywheelDerivativeFilterWindowSec);
-        derivativeStateInitialized = false;
-        lastTargetYaw = new Rotation2d();
-        lastHoodCommandDeg = 0.0;
-        lastFlywheelRpm = 0.0;
+    private static String autoStagePhaseLabel(int phaseCode) {
+        return switch (phaseCode) {
+            case AUTO_STAGE_PHASE_READY -> "Ready";
+            case AUTO_STAGE_PHASE_PROBE_BASELINE -> "ProbeBaseline";
+            case AUTO_STAGE_PHASE_PROBE_PULSE -> "ProbePulse";
+            case AUTO_STAGE_PHASE_STAGE_COMMAND -> "StageCommand";
+            case AUTO_STAGE_PHASE_COMPLETE -> "Complete";
+            case AUTO_STAGE_PHASE_IDLE -> "Idle";
+            default -> "Unknown";
+        };
     }
 
-    private AimSetpointDerivatives computeFilteredSetpointDerivatives(AutoAim.ShootingSolution solution) {
-        if (!derivativeStateInitialized) {
-            derivativeStateInitialized = true;
-            lastTargetYaw = solution.targetRobotYaw();
-            lastHoodCommandDeg = solution.hoodCommandDeg();
-            lastFlywheelRpm = solution.flywheelRpm();
-            return new AimSetpointDerivatives(0.0, 0.0, 0.0);
+    private static String autoStageReasonLabel(int reasonCode) {
+        return switch (reasonCode) {
+            case AUTO_STAGE_REASON_NONE -> "None";
+            case AUTO_STAGE_REASON_DISABLED -> "Disabled";
+            case AUTO_STAGE_REASON_NOT_TELEOP -> "NotTeleop";
+            case AUTO_STAGE_REASON_SUPERSTRUCTURE_BUSY -> "SuperstructureBusy";
+            case AUTO_STAGE_REASON_HOPPER_BUSY -> "HopperBusy";
+            case AUTO_STAGE_REASON_SHOOTER_FIRING -> "ShooterFiring";
+            case AUTO_STAGE_REASON_AGITATING -> "Agitating";
+            case AUTO_STAGE_REASON_TOP_BLOCKED -> "TopBlocked";
+            case AUTO_STAGE_REASON_EVIDENCE_LOW -> "NoLoadEventYet";
+            case AUTO_STAGE_REASON_WAITING_FOR_QUIET -> "WaitingForQuiet";
+            case AUTO_STAGE_REASON_COOLDOWN -> "Cooldown";
+            case AUTO_STAGE_REASON_PROBE_RUNNING -> "ProbeRunning";
+            case AUTO_STAGE_REASON_PROBE_REJECTED -> "ProbeRejected";
+            case AUTO_STAGE_REASON_STAGE_REQUESTED -> "StageRequested";
+            default -> "Unknown";
+        };
+    }
+
+    static boolean shouldRequestAutoStageFromProbe(
+            double probeAverageCurrentAmps,
+            double probeAverageVelocityRps,
+            double currentThresholdAmps,
+            double velocityThresholdRps) {
+        return probeAverageCurrentAmps >= currentThresholdAmps && probeAverageVelocityRps <= velocityThresholdRps;
+    }
+
+    private void initSmartDashboardAimTuning() {
+        SmartDashboard.putNumber("AimYaw/kP", cachedAimKp);
+        SmartDashboard.putNumber("AimYaw/kI", cachedAimKi);
+        SmartDashboard.putNumber("AimYaw/kD", cachedAimKd);
+        SmartDashboard.putNumber("AimYaw/AlignTolDeg", cachedAimAlignmentToleranceDeg);
+        SmartDashboard.putNumber(
+                "AimYaw/MaxIContributionDegPerSec",
+                cachedAimMaxIntegralContributionDegPerSec);
+    }
+
+    private void initSmartDashboardAutoStageTuning() {
+        SmartDashboard.putBoolean(kAutoStageEnabledKey, autoStageEnabled);
+        SmartDashboard.putNumber(kAutoStageProbeVoltsKey, autoStageProbeVolts);
+        SmartDashboard.putNumber(kAutoStageProbeBaselineSecKey, autoStageProbeBaselineSec);
+        SmartDashboard.putNumber(kAutoStageProbePulseSecKey, autoStageProbePulseSec);
+        SmartDashboard.putNumber(kAutoStageProbeCurrentThresholdKey, autoStageProbeCurrentThresholdAmps);
+        SmartDashboard.putNumber(kAutoStageProbeVelocityThresholdKey, autoStageProbeVelocityThresholdRps);
+        SmartDashboard.putNumber(kAutoStageIntakeCurrentThresholdKey, autoStageIntakeCurrentThresholdAmps);
+        SmartDashboard.putNumber(kAutoStageLoadScoreThresholdKey, autoStageLoadScoreThresholdSec);
+        SmartDashboard.putNumber(kAutoStageLoadScoreDecayKey, autoStageLoadScoreDecayPerSec);
+        SmartDashboard.putNumber(kAutoStageQuietTimeSecKey, autoStageQuietTimeSec);
+        SmartDashboard.putNumber(kAutoStageCooldownSecKey, autoStageCooldownSec);
+    }
+
+    private void updateSmartDashboardAimTuning() {
+        double aimKp = SmartDashboard.getNumber("AimYaw/kP", cachedAimKp);
+        double aimKi = SmartDashboard.getNumber("AimYaw/kI", cachedAimKi);
+        double aimKd = SmartDashboard.getNumber("AimYaw/kD", cachedAimKd);
+        double alignTolDeg = Math.max(0.0,
+                SmartDashboard.getNumber("AimYaw/AlignTolDeg", cachedAimAlignmentToleranceDeg));
+        double maxIContributionDegPerSec = Math.max(0.0, SmartDashboard.getNumber(
+                "AimYaw/MaxIContributionDegPerSec",
+                cachedAimMaxIntegralContributionDegPerSec));
+
+        if (aimKp != cachedAimKp || aimKi != cachedAimKi || aimKd != cachedAimKd) {
+            cachedAimKp = aimKp;
+            cachedAimKi = aimKi;
+            cachedAimKd = aimKd;
+            aimYawController.setPID(aimKp, aimKi, aimKd);
         }
 
-        double rawDriveAngleRateRadPerSec = solution.targetRobotYaw().minus(lastTargetYaw).getRadians()
-                / kControlLoopDtSec;
-        double rawHoodRateDegPerSec = (solution.hoodCommandDeg() - lastHoodCommandDeg) / kControlLoopDtSec;
-        double rawFlywheelRateRpmPerSec = (solution.flywheelRpm() - lastFlywheelRpm) / kControlLoopDtSec;
+        if (alignTolDeg != cachedAimAlignmentToleranceDeg) {
+            cachedAimAlignmentToleranceDeg = alignTolDeg;
+            aimAlignmentToleranceRad = Math.toRadians(alignTolDeg);
+        }
 
-        double filteredDriveAngleRateRadPerSec = driveAngleRateFilter.calculate(rawDriveAngleRateRadPerSec);
-        double filteredHoodRateDegPerSec = hoodRateFilter.calculate(rawHoodRateDegPerSec);
-        double filteredFlywheelRateRpmPerSec = flywheelRateFilter.calculate(rawFlywheelRateRpmPerSec);
+        if (maxIContributionDegPerSec != cachedAimMaxIntegralContributionDegPerSec) {
+            cachedAimMaxIntegralContributionDegPerSec = maxIContributionDegPerSec;
+            double maxIContributionRadPerSec = Math.toRadians(maxIContributionDegPerSec);
+            aimYawController.setIntegratorRange(-maxIContributionRadPerSec, maxIContributionRadPerSec);
+        }
+    }
 
-        lastTargetYaw = solution.targetRobotYaw();
-        lastHoodCommandDeg = solution.hoodCommandDeg();
-        lastFlywheelRpm = solution.flywheelRpm();
+    private void updateSmartDashboardAutoStageTuning() {
+        autoStageEnabled = SmartDashboard.getBoolean(kAutoStageEnabledKey, autoStageEnabled);
+        autoStageProbeVolts = SmartDashboard.getNumber(kAutoStageProbeVoltsKey, autoStageProbeVolts);
+        autoStageProbeBaselineSec = Math.max(
+                0.02,
+                SmartDashboard.getNumber(kAutoStageProbeBaselineSecKey, autoStageProbeBaselineSec));
+        autoStageProbePulseSec = Math.max(
+                0.02,
+                SmartDashboard.getNumber(kAutoStageProbePulseSecKey, autoStageProbePulseSec));
+        autoStageProbeCurrentThresholdAmps = Math.max(
+                0.0,
+                SmartDashboard.getNumber(kAutoStageProbeCurrentThresholdKey, autoStageProbeCurrentThresholdAmps));
+        autoStageProbeVelocityThresholdRps = Math.max(
+                0.0,
+                SmartDashboard.getNumber(kAutoStageProbeVelocityThresholdKey, autoStageProbeVelocityThresholdRps));
+        autoStageIntakeCurrentThresholdAmps = Math.max(
+                0.0,
+                SmartDashboard.getNumber(kAutoStageIntakeCurrentThresholdKey, autoStageIntakeCurrentThresholdAmps));
+        autoStageLoadScoreThresholdSec = Math.max(
+                0.0,
+                SmartDashboard.getNumber(kAutoStageLoadScoreThresholdKey, autoStageLoadScoreThresholdSec));
+        autoStageLoadScoreDecayPerSec = Math.max(
+                0.0,
+                SmartDashboard.getNumber(kAutoStageLoadScoreDecayKey, autoStageLoadScoreDecayPerSec));
+        autoStageQuietTimeSec = Math.max(
+                0.0,
+                SmartDashboard.getNumber(kAutoStageQuietTimeSecKey, autoStageQuietTimeSec));
+        autoStageCooldownSec = Math.max(
+                0.0,
+                SmartDashboard.getNumber(kAutoStageCooldownSecKey, autoStageCooldownSec));
+    }
 
-        return new AimSetpointDerivatives(
-                filteredDriveAngleRateRadPerSec,
-                filteredHoodRateDegPerSec,
-                filteredFlywheelRateRpmPerSec);
+    private void updateAutoStageMonitor(double nowSec) {
+        double dtSec = Double.isFinite(lastAutoStageMonitorSec) ? Math.max(0.0, nowSec - lastAutoStageMonitorSec) : 0.0;
+        lastAutoStageMonitorSec = nowSec;
+
+        autoStageIntakeRollerCurrentAmps = intake.getAverageRollerStatorCurrentAmps();
+        boolean intakeLoadDetected = intake.isRunning()
+                && autoStageIntakeRollerCurrentAmps >= autoStageIntakeCurrentThresholdAmps;
+        if (intakeLoadDetected) {
+            lastAutoStageLoadEventSec = nowSec;
+            autoStageLoadScoreSec = Math.min(kAutoStageLoadScoreMaxSec, autoStageLoadScoreSec + dtSec);
+        } else {
+            autoStageLoadScoreSec = Math.max(0.0, autoStageLoadScoreSec - autoStageLoadScoreDecayPerSec * dtSec);
+        }
+
+        double timeSinceLoadSec = Double.isFinite(lastAutoStageLoadEventSec)
+                ? Math.max(0.0, nowSec - lastAutoStageLoadEventSec)
+                : Double.POSITIVE_INFINITY;
+
+        if (!autoStageCommandActive) {
+            autoStagePhaseCode = AUTO_STAGE_PHASE_IDLE;
+            autoStageReadyToProbe = false;
+
+            if (!autoStageEnabled) {
+                autoStageReasonCode = AUTO_STAGE_REASON_DISABLED;
+            } else if (!DriverStation.isTeleopEnabled()) {
+                autoStageReasonCode = AUTO_STAGE_REASON_NOT_TELEOP;
+            } else if (getCurrentCommand() != null) {
+                autoStageReasonCode = AUTO_STAGE_REASON_SUPERSTRUCTURE_BUSY;
+            } else if (hopper.isRunning()) {
+                autoStageReasonCode = AUTO_STAGE_REASON_HOPPER_BUSY;
+            } else if (shooter.isFiring()) {
+                autoStageReasonCode = AUTO_STAGE_REASON_SHOOTER_FIRING;
+            } else if (intake.isAgitating()) {
+                autoStageReasonCode = AUTO_STAGE_REASON_AGITATING;
+            } else if (hopper.isTopBeamBreakBlocked()) {
+                autoStageReasonCode = AUTO_STAGE_REASON_TOP_BLOCKED;
+            } else if (!Double.isFinite(lastAutoStageLoadEventSec)) {
+                autoStageReasonCode = AUTO_STAGE_REASON_EVIDENCE_LOW;
+            } else if (timeSinceLoadSec < autoStageQuietTimeSec) {
+                autoStageReasonCode = AUTO_STAGE_REASON_WAITING_FOR_QUIET;
+            } else if (nowSec - lastAutoStageActionSec < autoStageCooldownSec) {
+                autoStageReasonCode = AUTO_STAGE_REASON_COOLDOWN;
+            } else {
+                autoStageReadyToProbe = true;
+                autoStagePhaseCode = AUTO_STAGE_PHASE_READY;
+                autoStageReasonCode = AUTO_STAGE_REASON_NONE;
+            }
+        }
+
+        telemetry.publishHopperAutoStageState(new HopperAutoStageSnapshot(
+                autoStageEnabled,
+                getCurrentCommand() == null,
+                hopper.isTopBeamBreakBlocked(),
+                autoStageReadyToProbe,
+                autoStageCommandActive,
+                autoStageLastProbePassed,
+                autoStageLastProbeTriggeredStage,
+                autoStagePhaseCode,
+                autoStageReasonCode,
+                autoStageLoadScoreSec,
+                autoStageIntakeRollerCurrentAmps,
+                timeSinceLoadSec,
+                autoStageProbeAverageCurrentAmps,
+                autoStageProbeAverageVelocityRps),
+                autoStagePhaseLabel(autoStagePhaseCode),
+                autoStageReasonLabel(autoStageReasonCode));
+    }
+
+    private void resetAimYawController() {
+        aimYawController.reset();
     }
 
     private static Translation2d limitTranslationForLaunch(
@@ -592,16 +922,6 @@ public class Superstructure extends SubsystemBase {
             return flywheelAtSetpoint;
         }
         return flywheelReadyLatchedThisHold;
-    }
-
-    static boolean shouldTreatAlignmentAsReady(
-            boolean alignedAtTightTolerance,
-            boolean alignmentReadyLatchedThisHold,
-            double rotationErrorRad) {
-        if (alignedAtTightTolerance) {
-            return true;
-        }
-        return alignmentReadyLatchedThisHold && Math.abs(rotationErrorRad) < kAimLatchedAlignmentToleranceRad;
     }
 
     private String describeShooterReadinessBlock(boolean hoodAtSetpoint, boolean flywheelAtSetpoint) {
@@ -746,7 +1066,6 @@ public class Superstructure extends SubsystemBase {
         AtomicBoolean timedReleaseStartedThisHold = new AtomicBoolean(false);
         AtomicBoolean releaseStartedThisHold = new AtomicBoolean(false);
         AtomicBoolean flywheelReadyLatchedThisHold = new AtomicBoolean(false);
-        AtomicBoolean alignmentReadyLatchedThisHold = new AtomicBoolean(false);
         return Commands.run(() -> {
             Pose2d robotPose = poseSupplier.get();
             ChassisSpeeds robotSpeeds = speedsSupplier.get();
@@ -762,16 +1081,8 @@ public class Superstructure extends SubsystemBase {
                     flywheelAtSetpoint,
                     releaseStartedThisHold.get(),
                     flywheelReadyLatchedThisHold.get());
-            if (result.isAligned()) {
-                alignmentReadyLatchedThisHold.set(true);
-            }
-            boolean alignedForRelease = shouldTreatAlignmentAsReady(
-                    result.isAligned(),
-                    alignmentReadyLatchedThisHold.get(),
-                    result.rotationErrorRad());
-            double alignmentToleranceRad = alignmentReadyLatchedThisHold.get()
-                    ? kAimLatchedAlignmentToleranceRad
-                    : kAimAlignmentToleranceRad;
+            boolean alignedForRelease = result.isAligned();
+            double alignmentToleranceRad = aimAlignmentToleranceRad;
             boolean shooterReadyForRelease = hoodAtSetpoint && flywheelReadyForRelease;
             boolean shotValid = result.solution().isValid();
             boolean sotmFireSafe = isSotmFireSafe(result.solution(), robotSpeeds);
@@ -915,8 +1226,7 @@ public class Superstructure extends SubsystemBase {
             timedReleaseStartedThisHold.set(false);
             releaseStartedThisHold.set(false);
             flywheelReadyLatchedThisHold.set(false);
-            alignmentReadyLatchedThisHold.set(false);
-            resetAimSetpointDerivatives();
+            resetAimYawController();
             telemetry.publishDriveAutoAim(false, 0.0, 0.0);
             resetTimedShotState();
             swerve.setFieldSpeeds(0.0, 0.0, 0.0);
@@ -925,8 +1235,7 @@ public class Superstructure extends SubsystemBase {
             timedReleaseStartedThisHold.set(false);
             releaseStartedThisHold.set(false);
             flywheelReadyLatchedThisHold.set(false);
-            alignmentReadyLatchedThisHold.set(false);
-            resetAimSetpointDerivatives();
+            resetAimYawController();
             telemetry.publishDriveAutoAim(false, 0.0, 0.0);
             resetTimedShotState();
         })
@@ -980,7 +1289,7 @@ public class Superstructure extends SubsystemBase {
                     flywheelAtSetpoint,
                     flywheelReadyForRelease,
                     true,
-                    kAimAlignmentToleranceRad,
+                    aimAlignmentToleranceRad,
                     result.rotationErrorRad(),
                     sotmFireSafe,
                     speedsSupplier.get(),
@@ -1007,8 +1316,8 @@ public class Superstructure extends SubsystemBase {
                     0.0,
                     result.rotationErrorRad(),
                     0.0);
-        }, this).beforeStarting(() -> {
-        }).finallyDo(() -> {
+        }, this).beforeStarting(this::resetAimYawController).finallyDo(() -> {
+            resetAimYawController();
             shooter.stop();
             hopper.stop();
             publishReleaseBlockTelemetry(false, null);

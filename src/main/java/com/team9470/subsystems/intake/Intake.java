@@ -442,6 +442,18 @@ public class Intake extends SubsystemBase {
         return agitating;
     }
 
+    public double getLeftRollerStatorCurrentAmps() {
+        return leftRoller.getStatorCurrent().getValueAsDouble();
+    }
+
+    public double getRightRollerStatorCurrentAmps() {
+        return rightRoller.getStatorCurrent().getValueAsDouble();
+    }
+
+    public double getAverageRollerStatorCurrentAmps() {
+        return (Math.abs(getLeftRollerStatorCurrentAmps()) + Math.abs(getRightRollerStatorCurrentAmps())) * 0.5;
+    }
+
     public double getPivotAngle() {
         if (Robot.isSimulation()) {
             return IntakeSimulation.getInstance().getAngleRad();

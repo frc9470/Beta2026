@@ -24,12 +24,17 @@ public class AutoAim {
     private static final double BALL_RADIUS_METERS = FieldConstants.GamePiece.ballRadius;
     private static final double GOAL_Z = FieldConstants.Hub.height + BALL_RADIUS_METERS;
     private static final double FEED_MODE_BLUE_X_THRESHOLD_M = 4.5;
+    private static final double BASE_FEED_TARGET_X_M = 1.8;
+    private static final double FEED_TARGET_Y_OFFSET_FROM_CENTER_M = 1.9952;
 
     private static final Translation3d BASE_HUB_TARGET = new Translation3d(
             FieldConstants.Hub.topCenterPoint.getX(),
             FieldConstants.Hub.topCenterPoint.getY(),
             GOAL_Z);
-    private static final Translation3d BASE_FEED_LEFT_TARGET = new Translation3d(1.8, 6.7, GOAL_Z);
+    private static final Translation3d BASE_FEED_LEFT_TARGET = new Translation3d(
+            BASE_FEED_TARGET_X_M,
+            FieldConstants.LinesHorizontal.center + FEED_TARGET_Y_OFFSET_FROM_CENTER_M,
+            GOAL_Z);
     private static final Translation3d BASE_FEED_RIGHT_TARGET = new Translation3d(
             BASE_FEED_LEFT_TARGET.getX(),
             FieldConstants.fieldWidth - BASE_FEED_LEFT_TARGET.getY(),

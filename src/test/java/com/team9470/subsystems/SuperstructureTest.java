@@ -32,14 +32,9 @@ class SuperstructureTest {
     }
 
     @Test
-    void alignmentLatchRequiresInitialTightAcquire() {
-        assertFalse(Superstructure.shouldTreatAlignmentAsReady(false, false, Math.toRadians(10.0)));
-        assertTrue(Superstructure.shouldTreatAlignmentAsReady(true, false, Math.toRadians(0.0)));
-    }
-
-    @Test
-    void alignmentLatchAllowsWiderContinuousWindow() {
-        assertTrue(Superstructure.shouldTreatAlignmentAsReady(false, true, Math.toRadians(10.0)));
-        assertFalse(Superstructure.shouldTreatAlignmentAsReady(false, true, Math.toRadians(16.0)));
+    void autoStageProbeRequiresCurrentAndSlowdown() {
+        assertTrue(Superstructure.shouldRequestAutoStageFromProbe(14.0, 3.0, 12.0, 4.0));
+        assertFalse(Superstructure.shouldRequestAutoStageFromProbe(10.0, 3.0, 12.0, 4.0));
+        assertFalse(Superstructure.shouldRequestAutoStageFromProbe(14.0, 4.5, 12.0, 4.0));
     }
 }
