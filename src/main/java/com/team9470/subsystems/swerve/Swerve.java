@@ -16,6 +16,7 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 // import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import com.ctre.phoenix6.configs.Slot0Configs;
+import com.team9470.FieldConstants;
 import com.team9470.TunerConstants;
 import com.team9470.Telemetry;
 import com.team9470.TunerConstants.TunerSwerveDrivetrain;
@@ -68,6 +69,9 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     private double cachedChoreoThetakP, cachedChoreoThetakI, cachedChoreoThetakD;
 
     private static final double AUTO_PATH_SAMPLE_TIMEOUT_SEC = 0.25;
+    private static final double AUTO_STARTUP_MOTION_THRESHOLD_MPS = 0.05;
+    private static final double AUTO_STARTUP_OMEGA_THRESHOLD_RAD_PER_SEC = 0.10;
+    private static final double AUTO_CENTERLINE_TOUCH_DISTANCE_M = 0.417449;
     private static final double SIM_LOOP_PERIOD = 0.005; // 5 ms
     /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
     private static final Rotation2d BLUE_ALLIANCE_PERSPECTIVE_ROTATION = Rotation2d.kZero;
@@ -150,6 +154,9 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 
     private double m_lastSimTime;
     private double lastAutoPathSampleTimestampSec = Double.NEGATIVE_INFINITY;
+    private Pose2d lastAutoDesiredPose = Pose2d.kZero;
+    private double lastAutoDesiredRobotTimestampSec = Double.NaN;
+    private boolean autoDesiredPoseSeen = false;
     /* Keep track if we've ever applied the operator perspective before or not */
     private boolean m_hasAppliedOperatorPerspective = false;
 
@@ -409,6 +416,15 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
         double[] moduleForcesX = sample.moduleForcesX();
         double[] moduleForcesY = sample.moduleForcesY();
         lastAutoPathSampleTimestampSec = Timer.getTimestamp();
+        markAutoCenterlineTouch(lastAutoPathSampleTimestampSec, desiredPose);
+        telemetry.markDriveAutoFirstPathSample(lastAutoPathSampleTimestampSec);
+        double commandedTranslationMps = Math.hypot(
+                commandedSpeeds.vxMetersPerSecond,
+                commandedSpeeds.vyMetersPerSecond);
+        if (commandedTranslationMps >= AUTO_STARTUP_MOTION_THRESHOLD_MPS
+                || Math.abs(commandedSpeeds.omegaRadiansPerSecond) >= AUTO_STARTUP_OMEGA_THRESHOLD_RAD_PER_SEC) {
+            telemetry.markDriveAutoFirstMotionCommand(lastAutoPathSampleTimestampSec, commandedSpeeds);
+        }
 
         telemetry.publishDriveAutoPathSample(
                 lastAutoPathSampleTimestampSec,
@@ -427,6 +443,51 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
                 applyFieldSpeeds.withSpeeds(commandedSpeeds)
                         .withWheelForceFeedforwardsX(moduleForcesX)
                         .withWheelForceFeedforwardsY(moduleForcesY));
+    }
+
+    public void resetAutoPathTracking() {
+        lastAutoPathSampleTimestampSec = Double.NEGATIVE_INFINITY;
+        lastAutoDesiredPose = Pose2d.kZero;
+        lastAutoDesiredRobotTimestampSec = Double.NaN;
+        autoDesiredPoseSeen = false;
+    }
+
+    private void markAutoCenterlineTouch(double currentRobotTimestampSec, Pose2d desiredPose) {
+        double centerlineX = FieldConstants.LinesVertical.center;
+        if (!autoDesiredPoseSeen) {
+            autoDesiredPoseSeen = true;
+            lastAutoDesiredPose = desiredPose;
+            lastAutoDesiredRobotTimestampSec = currentRobotTimestampSec;
+            if (desiredPose.getX() >= centerlineX - AUTO_CENTERLINE_TOUCH_DISTANCE_M) {
+                telemetry.markDriveAutoCenterlineTouch(currentRobotTimestampSec, desiredPose);
+            }
+            return;
+        }
+
+        double touchThresholdX = centerlineX - AUTO_CENTERLINE_TOUCH_DISTANCE_M;
+        double previousTouchX = lastAutoDesiredPose.getX();
+        double currentTouchX = desiredPose.getX();
+        if (previousTouchX < touchThresholdX && currentTouchX >= touchThresholdX) {
+            double fraction = interpolationFraction(previousTouchX, currentTouchX, touchThresholdX);
+            telemetry.markDriveAutoCenterlineTouch(
+                    interpolate(lastAutoDesiredRobotTimestampSec, currentRobotTimestampSec, fraction),
+                    lastAutoDesiredPose.interpolate(desiredPose, fraction));
+        }
+
+        lastAutoDesiredPose = desiredPose;
+        lastAutoDesiredRobotTimestampSec = currentRobotTimestampSec;
+    }
+
+    private double interpolationFraction(double start, double end, double target) {
+        double denominator = end - start;
+        if (Math.abs(denominator) < 1e-9) {
+            return 0.0;
+        }
+        return Math.max(0.0, Math.min(1.0, (target - start) / denominator));
+    }
+
+    private double interpolate(double start, double end, double fraction) {
+        return start + (end - start) * fraction;
     }
 
     /**

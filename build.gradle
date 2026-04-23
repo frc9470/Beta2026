@@ -83,6 +83,34 @@ test {
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
 }
 
+def autoTimingSim = tasks.register('autoTimingSim', Test) {
+    group = 'verification'
+    description = 'Runs a headless autonomous timing simulation and prints startup/arrival timing.'
+    useJUnitPlatform()
+    testLogging {
+        showStandardStreams = true
+        events "passed", "failed", "skipped"
+    }
+
+    systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
+    systemProperty 'autoSim.enabled', System.getProperty('autoSim.enabled', 'true')
+    systemProperty 'autoSim.auto', System.getProperty('autoSim.auto', 'leftBump')
+    systemProperty 'autoSim.targetTrajectory', System.getProperty('autoSim.targetTrajectory', 'overLeftBump')
+    systemProperty 'autoSim.alliance', System.getProperty('autoSim.alliance', 'blue')
+    systemProperty 'autoSim.mirrorTargetAcrossY', System.getProperty('autoSim.mirrorTargetAcrossY', 'false')
+    systemProperty 'autoSim.maxTimeSec', System.getProperty('autoSim.maxTimeSec', '15.0')
+    systemProperty 'autoSim.targetToleranceM', System.getProperty('autoSim.targetToleranceM', '0.15')
+    systemProperty 'autoSim.disableVision', System.getProperty('autoSim.disableVision', 'false')
+    systemProperty 'autoSim.referenceTrajectory', System.getProperty('autoSim.referenceTrajectory', 'leftBumpCycle1')
+    systemProperty 'autoSim.referenceMode', System.getProperty('autoSim.referenceMode', 'centerlineTouch')
+    systemProperty 'autoSim.referenceWaypointIndex', System.getProperty('autoSim.referenceWaypointIndex', '4')
+    systemProperty 'autoSim.referenceRadiusMode', System.getProperty('autoSim.referenceRadiusMode', 'side')
+
+    filter {
+        includeTestsMatching 'com.team9470.sim.AutoTimingSimulationTest'
+    }
+}
+
 // Simulation configuration (e.g. environment variables).
 wpi.sim.addGui().defaultEnabled = true
 wpi.sim.addDriverstation()
@@ -103,6 +131,7 @@ jar {
 deployArtifact.jarTask = jar
 wpi.java.configureExecutableTasks(jar)
 wpi.java.configureTestTasks(test)
+wpi.java.configureTestTasks(autoTimingSim.get())
 
 // Configure string concat to always inline compile
 tasks.withType(JavaCompile) {

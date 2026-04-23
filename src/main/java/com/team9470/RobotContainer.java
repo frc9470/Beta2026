@@ -347,7 +347,7 @@ public class RobotContainer {
   }
 
   public Command getAutonomousCommand() {
-    return m_autoChooser.selectedCommandScheduler();
+    return m_autoChooser.selectedCommand();
   }
 
   private Command createShooterCharacterizationCommand(

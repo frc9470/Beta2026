@@ -19,6 +19,8 @@ import com.team9470.telemetry.structs.VisionSnapshot;
 import com.team9470.telemetry.structs.YShotSnapshot;
 import com.team9470.util.AllianceFlipUtil;
 import com.team9470.util.TelemetryUtil;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -46,6 +48,9 @@ public final class TelemetryManager {
     public static final int VALIDATION_MAX_CORRECTION = 3;
 
     private static final TelemetryManager instance = new TelemetryManager();
+    private static final double kAutoStartupMeasuredTranslationThresholdMps = 0.05;
+    private static final double kAutoStartupMeasuredOmegaThresholdRadPerSec = 0.10;
+    private static final double kAutoCenterlineTouchDistanceM = 0.417449;
 
     public static TelemetryManager getInstance() {
         return instance;
@@ -111,6 +116,93 @@ public final class TelemetryManager {
             .publish();
     private final DoubleArrayPublisher driveAutoModuleForcesYPublisher = driveAutoTable.getDoubleArrayTopic("ModuleForcesY")
             .publish();
+    private final NetworkTable driveAutoStartupTable = driveAutoTable.getSubTable("Startup");
+    private final DoublePublisher driveAutoInitTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitTimestampSec", "s");
+    private final DoublePublisher driveAutoCommandScheduledTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "CommandScheduledTimestampSec", "s");
+    private final DoublePublisher driveAutoSelectedCommandStartTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "SelectedCommandStartTimestampSec", "s");
+    private final DoublePublisher driveAutoRoutineFirstPollTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "RoutineFirstPollTimestampSec", "s");
+    private final DoublePublisher driveAutoRoutineStartTriggerTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "RoutineStartTriggerTimestampSec", "s");
+    private final DoublePublisher driveAutoSequenceStartTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "SequenceStartTimestampSec", "s");
+    private final DoublePublisher driveAutoResetOdometryTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "ResetOdometryTimestampSec", "s");
+    private final DoublePublisher driveAutoDeployIntakeTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "DeployIntakeTimestampSec", "s");
+    private final DoublePublisher driveAutoFirstTrajectoryCommandInitTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "FirstTrajectoryCommandInitTimestampSec", "s");
+    private final DoublePublisher driveAutoFirstPathSampleTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "FirstPathSampleTimestampSec", "s");
+    private final DoublePublisher driveAutoFirstMotionTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "FirstMotionTimestampSec", "s");
+    private final DoublePublisher driveAutoFirstMeasuredMovementTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "FirstMeasuredMovementTimestampSec", "s");
+    private final DoublePublisher driveAutoOdomCenterlineTouchTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "OdomCenterlineTouchTimestampSec", "s");
+    private final DoublePublisher driveAutoCenterlineTouchTimestampPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "CenterlineTouchTimestampSec", "s");
+    private final DoublePublisher driveAutoInitToCommandSchedulePublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToCommandScheduleSec", "s");
+    private final DoublePublisher driveAutoInitToSelectedCommandStartPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToSelectedCommandStartSec", "s");
+    private final DoublePublisher driveAutoInitToRoutineFirstPollPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToRoutineFirstPollSec", "s");
+    private final DoublePublisher driveAutoInitToRoutineStartTriggerPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToRoutineStartTriggerSec", "s");
+    private final DoublePublisher driveAutoInitToSequenceStartPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToSequenceStartSec", "s");
+    private final DoublePublisher driveAutoInitToResetOdometryPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToResetOdometrySec", "s");
+    private final DoublePublisher driveAutoInitToDeployIntakePublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToDeployIntakeSec", "s");
+    private final DoublePublisher driveAutoInitToFirstTrajectoryCommandInitPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToFirstTrajectoryCommandInitSec", "s");
+    private final DoublePublisher driveAutoInitToFirstPathSamplePublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToFirstPathSampleSec", "s");
+    private final DoublePublisher driveAutoInitToFirstMotionPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToFirstMotionSec", "s");
+    private final DoublePublisher driveAutoInitToFirstMeasuredMovementPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToFirstMeasuredMovementSec", "s");
+    private final DoublePublisher driveAutoInitToOdomCenterlineTouchPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToOdomCenterlineTouchSec", "s");
+    private final DoublePublisher driveAutoInitToCenterlineTouchPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "AutoInitToCenterlineTouchSec", "s");
+    private final DoublePublisher driveAutoFirstMotionTranslationPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "FirstMotionTranslationMps", "m/s");
+    private final DoublePublisher driveAutoFirstMotionOmegaPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "FirstMotionOmegaRadPerSec", "rad/s");
+    private final DoublePublisher driveAutoFirstMeasuredMovementTranslationPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "FirstMeasuredMovementTranslationMps", "m/s");
+    private final DoublePublisher driveAutoFirstMeasuredMovementOmegaPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "FirstMeasuredMovementOmegaRadPerSec", "rad/s");
+    private final DoublePublisher driveAutoOdomCenterlineTouchXPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "OdomCenterlineTouchXM", "m");
+    private final DoublePublisher driveAutoOdomCenterlineTouchYPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "OdomCenterlineTouchYM", "m");
+    private final DoublePublisher driveAutoOdomCenterlineTouchHeadingPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "OdomCenterlineTouchHeadingDeg", "deg");
+    private final DoublePublisher driveAutoCenterlineTouchXPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "CenterlineTouchXM", "m");
+    private final DoublePublisher driveAutoCenterlineTouchYPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "CenterlineTouchYM", "m");
+    private final DoublePublisher driveAutoCenterlineTouchHeadingPublisher = TelemetryUtil.publishDouble(
+            driveAutoStartupTable, "CenterlineTouchHeadingDeg", "deg");
+    private final BooleanPublisher driveAutoCommandScheduledSeenPublisher = driveAutoStartupTable
+            .getBooleanTopic("CommandScheduledSeen").publish();
+    private final BooleanPublisher driveAutoFirstPathSampleSeenPublisher = driveAutoStartupTable
+            .getBooleanTopic("FirstPathSampleSeen").publish();
+    private final BooleanPublisher driveAutoFirstMotionSeenPublisher = driveAutoStartupTable
+            .getBooleanTopic("FirstMotionSeen").publish();
+    private final BooleanPublisher driveAutoFirstMeasuredMovementSeenPublisher = driveAutoStartupTable
+            .getBooleanTopic("FirstMeasuredMovementSeen").publish();
+    private final BooleanPublisher driveAutoOdomCenterlineTouchSeenPublisher = driveAutoStartupTable
+            .getBooleanTopic("OdomCenterlineTouchSeen").publish();
+    private final BooleanPublisher driveAutoCenterlineTouchSeenPublisher = driveAutoStartupTable
+            .getBooleanTopic("CenterlineTouchSeen").publish();
 
     private final NetworkTable intakeTable = telemetryTable.getSubTable("Intake");
     private final StructPublisher<IntakeSnapshot> intakeStatePublisher = intakeTable
@@ -270,17 +362,58 @@ public final class TelemetryManager {
 
     private int lastVisionValidationStatusCode = VALIDATION_OK;
     private static final double kHeadingLineLengthMeters = Math.hypot(FieldConstants.fieldLength, FieldConstants.fieldWidth);
+    private double driveAutoInitTimestampSec = Double.NaN;
+    private double driveAutoCommandScheduledTimestampSec = Double.NaN;
+    private double driveAutoSelectedCommandStartTimestampSec = Double.NaN;
+    private double driveAutoRoutineFirstPollTimestampSec = Double.NaN;
+    private double driveAutoRoutineStartTriggerTimestampSec = Double.NaN;
+    private double driveAutoSequenceStartTimestampSec = Double.NaN;
+    private double driveAutoResetOdometryTimestampSec = Double.NaN;
+    private double driveAutoDeployIntakeTimestampSec = Double.NaN;
+    private double driveAutoFirstTrajectoryCommandInitTimestampSec = Double.NaN;
+    private double driveAutoFirstPathSampleTimestampSec = Double.NaN;
+    private double driveAutoFirstMotionTimestampSec = Double.NaN;
+    private double driveAutoFirstMeasuredMovementTimestampSec = Double.NaN;
+    private double driveAutoOdomCenterlineTouchTimestampSec = Double.NaN;
+    private double driveAutoCenterlineTouchTimestampSec = Double.NaN;
+    private double driveAutoFirstMotionTranslationMps = Double.NaN;
+    private double driveAutoFirstMotionOmegaRadPerSec = Double.NaN;
+    private double driveAutoFirstMeasuredMovementTranslationMps = Double.NaN;
+    private double driveAutoFirstMeasuredMovementOmegaRadPerSec = Double.NaN;
+    private Pose2d driveAutoOdomCenterlineTouchPose = Pose2d.kZero;
+    private Pose2d driveAutoCenterlineTouchPose = Pose2d.kZero;
+    private Pose2d lastDrivePoseForAutoOdomTracking = Pose2d.kZero;
+    private double lastDrivePoseTimestampForAutoOdomTrackingSec = Double.NaN;
+    private boolean autoOdomTrackingPoseSeen = false;
 
     private TelemetryManager() {
     }
 
-    public void publishDrivePose(Pose2d pose) {
+    public void publishDrivePose(double timestampSec, Pose2d pose) {
         drivePosePublisher.set(pose);
         publishDriveAimGeometry(pose);
+        trackAutoOdomCenterlineTouch(timestampSec, pose);
+    }
+
+    public void publishDrivePose(Pose2d pose) {
+        publishDrivePose(Double.NaN, pose);
+    }
+
+    public void publishDriveSpeeds(double timestampSec, ChassisSpeeds speeds) {
+        driveSpeedsPublisher.set(speeds);
+        double measuredTranslationMps = Math.hypot(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond);
+        if (DriverStation.isAutonomous()
+                && DriverStation.isEnabled()
+                && Double.isFinite(driveAutoInitTimestampSec)
+                && Double.isNaN(driveAutoFirstMeasuredMovementTimestampSec)
+                && (measuredTranslationMps >= kAutoStartupMeasuredTranslationThresholdMps
+                        || Math.abs(speeds.omegaRadiansPerSecond) >= kAutoStartupMeasuredOmegaThresholdRadPerSec)) {
+            markDriveAutoFirstMeasuredMovement(timestampSec, speeds);
+        }
     }
 
     public void publishDriveSpeeds(ChassisSpeeds speeds) {
-        driveSpeedsPublisher.set(speeds);
+        publishDriveSpeeds(Double.NaN, speeds);
     }
 
     public void publishDriveModuleStates(SwerveModuleState[] states) {
@@ -344,6 +477,275 @@ public final class TelemetryManager {
         driveAutoMeasuredSpeedsPublisher.set(measuredSpeeds);
         driveAutoModuleForcesXPublisher.set(moduleForcesX);
         driveAutoModuleForcesYPublisher.set(moduleForcesY);
+    }
+
+    public void resetDriveAutoStartupProfile() {
+        driveAutoInitTimestampSec = Double.NaN;
+        driveAutoCommandScheduledTimestampSec = Double.NaN;
+        driveAutoSelectedCommandStartTimestampSec = Double.NaN;
+        driveAutoRoutineFirstPollTimestampSec = Double.NaN;
+        driveAutoRoutineStartTriggerTimestampSec = Double.NaN;
+        driveAutoSequenceStartTimestampSec = Double.NaN;
+        driveAutoResetOdometryTimestampSec = Double.NaN;
+        driveAutoDeployIntakeTimestampSec = Double.NaN;
+        driveAutoFirstTrajectoryCommandInitTimestampSec = Double.NaN;
+        driveAutoFirstPathSampleTimestampSec = Double.NaN;
+        driveAutoFirstMotionTimestampSec = Double.NaN;
+        driveAutoFirstMeasuredMovementTimestampSec = Double.NaN;
+        driveAutoOdomCenterlineTouchTimestampSec = Double.NaN;
+        driveAutoCenterlineTouchTimestampSec = Double.NaN;
+        driveAutoFirstMotionTranslationMps = Double.NaN;
+        driveAutoFirstMotionOmegaRadPerSec = Double.NaN;
+        driveAutoFirstMeasuredMovementTranslationMps = Double.NaN;
+        driveAutoFirstMeasuredMovementOmegaRadPerSec = Double.NaN;
+        driveAutoOdomCenterlineTouchPose = Pose2d.kZero;
+        driveAutoCenterlineTouchPose = Pose2d.kZero;
+        lastDrivePoseForAutoOdomTracking = Pose2d.kZero;
+        lastDrivePoseTimestampForAutoOdomTrackingSec = Double.NaN;
+        autoOdomTrackingPoseSeen = false;
+        publishDriveAutoStartupProfile();
+    }
+
+    public void markDriveAutoInit(double timestampSec) {
+        driveAutoInitTimestampSec = timestampSec;
+        publishDriveAutoStartupProfile();
+    }
+
+    public void markDriveAutoCommandScheduled(double timestampSec) {
+        if (Double.isNaN(driveAutoCommandScheduledTimestampSec)) {
+            driveAutoCommandScheduledTimestampSec = timestampSec;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoSelectedCommandStart(double timestampSec) {
+        if (Double.isNaN(driveAutoSelectedCommandStartTimestampSec)) {
+            driveAutoSelectedCommandStartTimestampSec = timestampSec;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoRoutineFirstPoll(double timestampSec) {
+        if (Double.isNaN(driveAutoRoutineFirstPollTimestampSec)) {
+            driveAutoRoutineFirstPollTimestampSec = timestampSec;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoRoutineStartTrigger(double timestampSec) {
+        if (Double.isNaN(driveAutoRoutineStartTriggerTimestampSec)) {
+            driveAutoRoutineStartTriggerTimestampSec = timestampSec;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoSequenceStart(double timestampSec) {
+        if (Double.isNaN(driveAutoSequenceStartTimestampSec)) {
+            driveAutoSequenceStartTimestampSec = timestampSec;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoResetOdometry(double timestampSec) {
+        if (Double.isNaN(driveAutoResetOdometryTimestampSec)) {
+            driveAutoResetOdometryTimestampSec = timestampSec;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoDeployIntake(double timestampSec) {
+        if (Double.isNaN(driveAutoDeployIntakeTimestampSec)) {
+            driveAutoDeployIntakeTimestampSec = timestampSec;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoFirstTrajectoryCommandInit(double timestampSec) {
+        if (Double.isNaN(driveAutoFirstTrajectoryCommandInitTimestampSec)) {
+            driveAutoFirstTrajectoryCommandInitTimestampSec = timestampSec;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoFirstPathSample(double timestampSec) {
+        if (Double.isNaN(driveAutoFirstPathSampleTimestampSec)) {
+            driveAutoFirstPathSampleTimestampSec = timestampSec;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoFirstMotionCommand(double timestampSec, ChassisSpeeds commandedSpeeds) {
+        if (Double.isNaN(driveAutoFirstMotionTimestampSec)) {
+            driveAutoFirstMotionTimestampSec = timestampSec;
+            driveAutoFirstMotionTranslationMps = Math.hypot(
+                    commandedSpeeds.vxMetersPerSecond,
+                    commandedSpeeds.vyMetersPerSecond);
+            driveAutoFirstMotionOmegaRadPerSec = commandedSpeeds.omegaRadiansPerSecond;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoFirstMeasuredMovement(double timestampSec, ChassisSpeeds measuredSpeeds) {
+        if (Double.isNaN(driveAutoFirstMeasuredMovementTimestampSec)) {
+            driveAutoFirstMeasuredMovementTimestampSec = timestampSec;
+            driveAutoFirstMeasuredMovementTranslationMps = Math.hypot(
+                    measuredSpeeds.vxMetersPerSecond,
+                    measuredSpeeds.vyMetersPerSecond);
+            driveAutoFirstMeasuredMovementOmegaRadPerSec = measuredSpeeds.omegaRadiansPerSecond;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    public void markDriveAutoOdomCenterlineTouch(double timestampSec, Pose2d pose) {
+        if (Double.isNaN(driveAutoOdomCenterlineTouchTimestampSec)) {
+            driveAutoOdomCenterlineTouchTimestampSec = timestampSec;
+            driveAutoOdomCenterlineTouchPose = pose;
+            publishDriveAutoStartupProfile();
+            if (RobotBase.isReal()) {
+                double autoInitToFirstMeasuredMovementSec = latencyFromAutoInit(
+                        driveAutoFirstMeasuredMovementTimestampSec);
+                double autoInitToOdomCenterlineTouchSec = latencyFromAutoInit(driveAutoOdomCenterlineTouchTimestampSec);
+                System.out.println("==============================================");
+                System.out.println("  AUTO ODOM CENTERLINE TOUCH");
+                System.out.println("----------------------------------------------");
+                System.out.printf("  Auto init -> first measured movement: %.3f s%n", autoInitToFirstMeasuredMovementSec);
+                System.out.printf("  First measured movement translation: %.3f m/s%n",
+                        driveAutoFirstMeasuredMovementTranslationMps);
+                System.out.printf("  Auto init -> odom centerline touch: %.3f s%n", autoInitToOdomCenterlineTouchSec);
+                System.out.printf("  Odom centerline touch pose: (%.3f, %.3f, %.1f deg)%n",
+                        pose.getX(),
+                        pose.getY(),
+                        pose.getRotation().getDegrees());
+                System.out.println("==============================================");
+            }
+        }
+    }
+
+    public void markDriveAutoCenterlineTouch(double timestampSec, Pose2d pose) {
+        if (Double.isNaN(driveAutoCenterlineTouchTimestampSec)) {
+            driveAutoCenterlineTouchTimestampSec = timestampSec;
+            driveAutoCenterlineTouchPose = pose;
+            publishDriveAutoStartupProfile();
+        }
+    }
+
+    private void publishDriveAutoStartupProfile() {
+        driveAutoInitTimestampPublisher.set(driveAutoInitTimestampSec);
+        driveAutoCommandScheduledTimestampPublisher.set(driveAutoCommandScheduledTimestampSec);
+        driveAutoSelectedCommandStartTimestampPublisher.set(driveAutoSelectedCommandStartTimestampSec);
+        driveAutoRoutineFirstPollTimestampPublisher.set(driveAutoRoutineFirstPollTimestampSec);
+        driveAutoRoutineStartTriggerTimestampPublisher.set(driveAutoRoutineStartTriggerTimestampSec);
+        driveAutoSequenceStartTimestampPublisher.set(driveAutoSequenceStartTimestampSec);
+        driveAutoResetOdometryTimestampPublisher.set(driveAutoResetOdometryTimestampSec);
+        driveAutoDeployIntakeTimestampPublisher.set(driveAutoDeployIntakeTimestampSec);
+        driveAutoFirstTrajectoryCommandInitTimestampPublisher.set(driveAutoFirstTrajectoryCommandInitTimestampSec);
+        driveAutoFirstPathSampleTimestampPublisher.set(driveAutoFirstPathSampleTimestampSec);
+        driveAutoFirstMotionTimestampPublisher.set(driveAutoFirstMotionTimestampSec);
+        driveAutoFirstMeasuredMovementTimestampPublisher.set(driveAutoFirstMeasuredMovementTimestampSec);
+        driveAutoOdomCenterlineTouchTimestampPublisher.set(driveAutoOdomCenterlineTouchTimestampSec);
+        driveAutoCenterlineTouchTimestampPublisher.set(driveAutoCenterlineTouchTimestampSec);
+        driveAutoInitToCommandSchedulePublisher.set(
+                latencyFromAutoInit(driveAutoCommandScheduledTimestampSec));
+        driveAutoInitToSelectedCommandStartPublisher.set(
+                latencyFromAutoInit(driveAutoSelectedCommandStartTimestampSec));
+        driveAutoInitToRoutineFirstPollPublisher.set(
+                latencyFromAutoInit(driveAutoRoutineFirstPollTimestampSec));
+        driveAutoInitToRoutineStartTriggerPublisher.set(
+                latencyFromAutoInit(driveAutoRoutineStartTriggerTimestampSec));
+        driveAutoInitToSequenceStartPublisher.set(
+                latencyFromAutoInit(driveAutoSequenceStartTimestampSec));
+        driveAutoInitToResetOdometryPublisher.set(
+                latencyFromAutoInit(driveAutoResetOdometryTimestampSec));
+        driveAutoInitToDeployIntakePublisher.set(
+                latencyFromAutoInit(driveAutoDeployIntakeTimestampSec));
+        driveAutoInitToFirstTrajectoryCommandInitPublisher.set(
+                latencyFromAutoInit(driveAutoFirstTrajectoryCommandInitTimestampSec));
+        driveAutoInitToFirstPathSamplePublisher.set(
+                latencyFromAutoInit(driveAutoFirstPathSampleTimestampSec));
+        driveAutoInitToFirstMotionPublisher.set(
+                latencyFromAutoInit(driveAutoFirstMotionTimestampSec));
+        driveAutoInitToFirstMeasuredMovementPublisher.set(
+                latencyFromAutoInit(driveAutoFirstMeasuredMovementTimestampSec));
+        driveAutoInitToOdomCenterlineTouchPublisher.set(
+                latencyFromAutoInit(driveAutoOdomCenterlineTouchTimestampSec));
+        driveAutoInitToCenterlineTouchPublisher.set(
+                latencyFromAutoInit(driveAutoCenterlineTouchTimestampSec));
+        driveAutoFirstMotionTranslationPublisher.set(driveAutoFirstMotionTranslationMps);
+        driveAutoFirstMotionOmegaPublisher.set(driveAutoFirstMotionOmegaRadPerSec);
+        driveAutoFirstMeasuredMovementTranslationPublisher.set(driveAutoFirstMeasuredMovementTranslationMps);
+        driveAutoFirstMeasuredMovementOmegaPublisher.set(driveAutoFirstMeasuredMovementOmegaRadPerSec);
+        driveAutoOdomCenterlineTouchXPublisher.set(driveAutoOdomCenterlineTouchPose.getX());
+        driveAutoOdomCenterlineTouchYPublisher.set(driveAutoOdomCenterlineTouchPose.getY());
+        driveAutoOdomCenterlineTouchHeadingPublisher.set(driveAutoOdomCenterlineTouchPose.getRotation().getDegrees());
+        driveAutoCenterlineTouchXPublisher.set(driveAutoCenterlineTouchPose.getX());
+        driveAutoCenterlineTouchYPublisher.set(driveAutoCenterlineTouchPose.getY());
+        driveAutoCenterlineTouchHeadingPublisher.set(driveAutoCenterlineTouchPose.getRotation().getDegrees());
+        driveAutoCommandScheduledSeenPublisher.set(Double.isFinite(driveAutoCommandScheduledTimestampSec));
+        driveAutoFirstPathSampleSeenPublisher.set(Double.isFinite(driveAutoFirstPathSampleTimestampSec));
+        driveAutoFirstMotionSeenPublisher.set(Double.isFinite(driveAutoFirstMotionTimestampSec));
+        driveAutoFirstMeasuredMovementSeenPublisher.set(Double.isFinite(driveAutoFirstMeasuredMovementTimestampSec));
+        driveAutoOdomCenterlineTouchSeenPublisher.set(Double.isFinite(driveAutoOdomCenterlineTouchTimestampSec));
+        driveAutoCenterlineTouchSeenPublisher.set(Double.isFinite(driveAutoCenterlineTouchTimestampSec));
+    }
+
+    private void trackAutoOdomCenterlineTouch(double timestampSec, Pose2d pose) {
+        if (!RobotBase.isReal()
+                || !DriverStation.isAutonomous()
+                || !DriverStation.isEnabled()
+                || !Double.isFinite(driveAutoInitTimestampSec)
+                || Double.isNaN(timestampSec)
+                || Double.isFinite(driveAutoOdomCenterlineTouchTimestampSec)) {
+            return;
+        }
+
+        double touchThresholdX = FieldConstants.LinesVertical.center - kAutoCenterlineTouchDistanceM;
+        if (!autoOdomTrackingPoseSeen || !Double.isFinite(lastDrivePoseTimestampForAutoOdomTrackingSec)) {
+            autoOdomTrackingPoseSeen = true;
+            lastDrivePoseForAutoOdomTracking = pose;
+            lastDrivePoseTimestampForAutoOdomTrackingSec = timestampSec;
+            if (pose.getX() >= touchThresholdX) {
+                markDriveAutoOdomCenterlineTouch(timestampSec, pose);
+            }
+            return;
+        }
+
+        double previousX = lastDrivePoseForAutoOdomTracking.getX();
+        double currentX = pose.getX();
+        if (previousX < touchThresholdX && currentX >= touchThresholdX) {
+            double fraction = interpolationFraction(previousX, currentX, touchThresholdX);
+            markDriveAutoOdomCenterlineTouch(
+                    interpolate(lastDrivePoseTimestampForAutoOdomTrackingSec, timestampSec, fraction),
+                    interpolatePose(lastDrivePoseForAutoOdomTracking, pose, fraction));
+        }
+
+        lastDrivePoseForAutoOdomTracking = pose;
+        lastDrivePoseTimestampForAutoOdomTrackingSec = timestampSec;
+    }
+
+    private static double interpolationFraction(double start, double end, double target) {
+        double denominator = end - start;
+        if (Math.abs(denominator) < 1e-9) {
+            return 0.0;
+        }
+        return Math.max(0.0, Math.min(1.0, (target - start) / denominator));
+    }
+
+    private static double interpolate(double start, double end, double fraction) {
+        return start + (end - start) * fraction;
+    }
+
+    private static Pose2d interpolatePose(Pose2d start, Pose2d end, double fraction) {
+        return new Pose2d(
+                interpolate(start.getX(), end.getX(), fraction),
+                interpolate(start.getY(), end.getY(), fraction),
+                start.getRotation().interpolate(end.getRotation(), fraction));
+    }
+
+    private double latencyFromAutoInit(double timestampSec) {
+        if (!Double.isFinite(driveAutoInitTimestampSec) || !Double.isFinite(timestampSec)) {
+            return Double.NaN;
+        }
+        return timestampSec - driveAutoInitTimestampSec;
     }
 
     public void publishIntakeState(IntakeSnapshot snapshot) {

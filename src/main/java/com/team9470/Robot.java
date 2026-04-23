@@ -4,6 +4,7 @@
 
 package com.team9470;
 
+import com.team9470.subsystems.swerve.Swerve;
 import com.team9470.telemetry.MatchTimingService;
 import com.team9470.telemetry.PracticeTimerTracker;
 import com.team9470.telemetry.TelemetryManager;
@@ -16,6 +17,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.wpilibj2.command.WrapperCommand;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -126,11 +128,25 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousInit() {
+    double autoInitTimestampSec = Timer.getTimestamp();
+    Swerve.getInstance().resetAutoPathTracking();
+    telemetry.resetDriveAutoStartupProfile();
+    telemetry.markDriveAutoInit(autoInitTimestampSec);
     m_autonomousCommand = m_robotContainer.getAutonomousCommand();
+    if (m_autonomousCommand != null) {
+      m_autonomousCommand = new WrapperCommand(m_autonomousCommand) {
+        @Override
+        public void initialize() {
+          telemetry.markDriveAutoSelectedCommandStart(Timer.getTimestamp());
+          super.initialize();
+        }
+      };
+    }
     startAutoTurboWindowIfEnabled();
 
     if (m_autonomousCommand != null) {
       CommandScheduler.getInstance().schedule(m_autonomousCommand);
+      telemetry.markDriveAutoCommandScheduled(Timer.getTimestamp());
     }
   }
 
