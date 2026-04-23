@@ -16,6 +16,7 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 // import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import com.ctre.phoenix6.configs.Slot0Configs;
+import com.team9470.Constants;
 import com.team9470.FieldConstants;
 import com.team9470.TunerConstants;
 import com.team9470.Telemetry;
@@ -71,7 +72,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     private static final double AUTO_PATH_SAMPLE_TIMEOUT_SEC = 0.25;
     private static final double AUTO_STARTUP_MOTION_THRESHOLD_MPS = 0.05;
     private static final double AUTO_STARTUP_OMEGA_THRESHOLD_RAD_PER_SEC = 0.10;
-    private static final double AUTO_CENTERLINE_TOUCH_DISTANCE_M = 0.417449;
+    private static final double AUTO_CENTERLINE_TOUCH_DISTANCE_M = Constants.RobotGeometry.kChoreoSideBumperMeters;
     private static final double SIM_LOOP_PERIOD = 0.005; // 5 ms
     /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
     private static final Rotation2d BLUE_ALLIANCE_PERSPECTIVE_ROTATION = Rotation2d.kZero;

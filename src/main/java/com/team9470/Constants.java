@@ -17,6 +17,11 @@ package com.team9470;
  * constants are needed, to reduce verbosity.
  */
 public final class Constants {
+  public static class RobotGeometry {
+    // Match the current Choreo bumper metadata used for centerline-touch timing.
+    public static final double kChoreoSideBumperMeters = 0.381;
+  }
+
   public static class OperatorConstants {
     public static final int kDriverControllerPort = 0;
   }

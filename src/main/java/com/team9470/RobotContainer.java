@@ -76,7 +76,7 @@ public class RobotContainer {
   private static final double kIntakeHeadingManualOverrideDeadband = 0.10;
   private static final double kActiveWindowEarlyRumbleLeadSecDefault = 10.0;
   private static final double kActiveWindowRumbleLeadSecDefault = 5.0;
-  private static final boolean kAutoTurboEnabledDefault = false;
+  private static final boolean kAutoTurboEnabledDefault = true;
   private static final double kActiveWindowEarlyRumbleIntensity = 0.70;
   private static final double kActiveWindowRumbleIntensity = 1.00;
   private static final double kActiveWindowRumbleSec = 0.20;
@@ -211,8 +211,13 @@ public class RobotContainer {
     // Start: Toggle intake to deploy-high (+10 deg) / retract
     m_driverController.start().onTrue(m_superstructure.toggleIntakeHighCommand());
 
-    // Back: Hold to run wheel radius characterization spin test
-    m_driverController.back().whileTrue(new WheelRadiusCharacterization(m_swerve));
+    // Back (non-test): Manually trigger auto-stage probe for tuning
+    nonTestModeTrigger(m_driverController.back())
+        .onTrue(m_superstructure.autoStageProbeCommand());
+
+    // Back (test mode): Hold to run wheel radius characterization spin test
+    testModeTrigger(m_driverController.back())
+        .whileTrue(new WheelRadiusCharacterization(m_swerve));
 
     // A: Debug - Run hopper while held
     m_driverController.a().whileTrue(m_superstructure.getHopper().runCommand());
@@ -341,6 +346,8 @@ public class RobotContainer {
     m_autoChooser.addRoutine("rightBumpConservative", m_autos::rightBumpConservative);
     m_autoChooser.addRoutine("rightBumpRush", m_autos::rightBumpRush);
     m_autoChooser.addRoutine("leftBumpRush", m_autos::leftBumpRush);
+    m_autoChooser.addRoutine("leftBumpFast", m_autos::leftBumpFast);
+    m_autoChooser.addRoutine("rightBumpFast", m_autos::rightBumpFast);
     m_autoChooser.addCmd("blineTest", m_autos::blineTest);
     m_autoChooser.select("Do Nothing");
     SmartDashboard.putData("AutoChooser", m_autoChooser);

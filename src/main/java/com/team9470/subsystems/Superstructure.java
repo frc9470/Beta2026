@@ -110,7 +110,7 @@ public class Superstructure extends SubsystemBase {
     private static final double kAutoStageProbeVoltsDefault = -2.5;
     private static final double kAutoStageProbeBaselineSecDefault = 0.08;
     private static final double kAutoStageProbePulseSecDefault = 0.20;
-    private static final double kAutoStageProbeCurrentThresholdAmpsDefault = 12.0;
+    private static final double kAutoStageProbeCurrentThresholdAmpsDefault = 30.0;
     private static final double kAutoStageProbeVelocityThresholdRpsDefault = 4.0;
     private static final double kAutoStageIntakeCurrentThresholdAmpsDefault = 18.0;
     private static final double kAutoStageLoadScoreThresholdSecDefault = 0.35;
@@ -147,8 +147,8 @@ public class Superstructure extends SubsystemBase {
     private double cachedAimKi = kAimKiDefault;
     private double cachedAimKd = kAimKdDefault;
     private double cachedAimAlignmentToleranceDeg = Math.toDegrees(kAimAlignmentToleranceRadDefault);
-    private double cachedAimMaxIntegralContributionDegPerSec =
-            Math.toDegrees(kAimMaxIntegralContributionRadPerSecDefault);
+    private double cachedAimMaxIntegralContributionDegPerSec = Math
+            .toDegrees(kAimMaxIntegralContributionRadPerSecDefault);
     private double aimAlignmentToleranceRad = kAimAlignmentToleranceRadDefault;
     private boolean autoStageEnabled = kAutoStageEnabledDefault;
     private double autoStageProbeVolts = kAutoStageProbeVoltsDefault;
@@ -175,7 +175,9 @@ public class Superstructure extends SubsystemBase {
     private int autoStagePhaseCode = AUTO_STAGE_PHASE_IDLE;
     private int autoStageReasonCode = AUTO_STAGE_REASON_DISABLED;
     private String lastReleaseBlockReason = "NoBlockRecordedYet";
-    /** FPGA timestamp when the zone was last active, for the post-active cooldown. */
+    /**
+     * FPGA timestamp when the zone was last active, for the post-active cooldown.
+     */
     private double lastZoneActiveSec = Double.NEGATIVE_INFINITY;
 
     private Superstructure() {
@@ -294,10 +296,10 @@ public class Superstructure extends SubsystemBase {
      * Manual intake control command (right bumper). Tap vs. hold is decided on
      * release so the two actions never overlap.
      * <ul>
-     *   <li><b>Tap</b> (release before {@link #kManualIntakeTapThresholdSec}):
-     *       stow the intake. Rollers are never overridden.</li>
-     *   <li><b>Hold</b> (past the threshold): stop the rollers while held; the
-     *       intake pivot stays where it was. No stow on release.</li>
+     * <li><b>Tap</b> (release before {@link #kManualIntakeTapThresholdSec}):
+     * stow the intake. Rollers are never overridden.</li>
+     * <li><b>Hold</b> (past the threshold): stop the rollers while held; the
+     * intake pivot stays where it was. No stow on release.</li>
      * </ul>
      */
     public Command manualIntakeControlCommand() {
@@ -668,7 +670,7 @@ public class Superstructure extends SubsystemBase {
             double probeAverageVelocityRps,
             double currentThresholdAmps,
             double velocityThresholdRps) {
-        return probeAverageCurrentAmps >= currentThresholdAmps && probeAverageVelocityRps <= velocityThresholdRps;
+        return probeAverageCurrentAmps >= currentThresholdAmps;
     }
 
     private void initSmartDashboardAimTuning() {

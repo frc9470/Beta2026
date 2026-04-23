@@ -105,6 +105,11 @@ def autoTimingSim = tasks.register('autoTimingSim', Test) {
     systemProperty 'autoSim.referenceMode', System.getProperty('autoSim.referenceMode', 'centerlineTouch')
     systemProperty 'autoSim.referenceWaypointIndex', System.getProperty('autoSim.referenceWaypointIndex', '4')
     systemProperty 'autoSim.referenceRadiusMode', System.getProperty('autoSim.referenceRadiusMode', 'side')
+    System.getProperties().each { key, value ->
+        if (key.toString().startsWith('autoSim.override.')) {
+            systemProperty key.toString(), value.toString()
+        }
+    }
 
     filter {
         includeTestsMatching 'com.team9470.sim.AutoTimingSimulationTest'

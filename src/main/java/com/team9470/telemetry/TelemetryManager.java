@@ -1,6 +1,7 @@
 package com.team9470.telemetry;
 
 import com.team9470.FieldConstants;
+import com.team9470.Constants;
 import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
 import com.team9470.telemetry.structs.DriveStatusSnapshot;
 import com.team9470.telemetry.structs.HopperAutoStageSnapshot;
@@ -50,7 +51,7 @@ public final class TelemetryManager {
     private static final TelemetryManager instance = new TelemetryManager();
     private static final double kAutoStartupMeasuredTranslationThresholdMps = 0.05;
     private static final double kAutoStartupMeasuredOmegaThresholdRadPerSec = 0.10;
-    private static final double kAutoCenterlineTouchDistanceM = 0.417449;
+    private static final double kAutoCenterlineTouchDistanceM = Constants.RobotGeometry.kChoreoSideBumperMeters;
 
     public static TelemetryManager getInstance() {
         return instance;

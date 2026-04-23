@@ -61,7 +61,7 @@ public class TunerConstants {
         // The stator current at which the wheels start to slip;
         // This needs to be tuned to your individual robot
         public static final Current kNominalSlipCurrent = Amps.of(60);
-        public static final Current kTurboSlipCurrent = Amps.of(100);
+        public static final Current kTurboSlipCurrent = Amps.of(120);
         // Keep drive/steer limits explicit to avoid brownouts while preserving
         // traction.
         private static final Current kSteerStatorCurrentLimit = Amps.of(60);

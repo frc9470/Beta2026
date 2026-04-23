@@ -12,6 +12,7 @@ import com.team9470.subsystems.swerve.Swerve;
 import com.team9470.telemetry.TelemetryManager;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
@@ -35,11 +36,11 @@ public class Autos {
         swerve::getPose,
         swerve::getChassisSpeeds,
         swerve::setChassisSpeeds,
-        new PIDController(5.0, 0.0, 0.0),  // Translation PID (tune on robot)
-        new PIDController(3.0, 0.0, 0.0),  // Rotation PID (tune on robot)
-        new PIDController(2.0, 0.0, 0.0)   // Cross-track PID (tune on robot)
+        new PIDController(5.0, 0.0, 0.0), // Translation PID (tune on robot)
+        new PIDController(3.0, 0.0, 0.0), // Rotation PID (tune on robot)
+        new PIDController(2.0, 0.0, 0.0) // Cross-track PID (tune on robot)
     ).withDefaultShouldFlip()
-     .withPoseReset(swerve::resetPose);
+        .withPoseReset(swerve::resetPose);
   }
 
   /**
@@ -95,8 +96,16 @@ public class Autos {
 
   private static AutoTrajectory loadTrajectory(
       AutoRoutine routine, String trajectoryName, boolean mirrorAcrossY) {
-    AutoTrajectory trajectory = routine.trajectory(trajectoryName);
+    String resolvedTrajectoryName = resolveTrajectoryOverride(trajectoryName);
+    AutoTrajectory trajectory = routine.trajectory(resolvedTrajectoryName);
     return mirrorAcrossY ? trajectory.mirrorY() : trajectory;
+  }
+
+  private static String resolveTrajectoryOverride(String trajectoryName) {
+    if (!RobotBase.isSimulation()) {
+      return trajectoryName;
+    }
+    return System.getProperty("autoSim.override." + trajectoryName, trajectoryName);
   }
 
   private AutoRoutine buildTrenchRoutine(
@@ -219,6 +228,44 @@ public class Autos {
   public AutoRoutine rightBumpRush() {
     AutoRoutine routine = m_autoFactory.newRoutine("rightBumpRush");
     AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1Rush", true);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2", true);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", true);
+
+    Command autoCommand = startFirstTrajectory(firstCycle)
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(finishTrajectory.cmd());
+
+    bindRoutineStartup(routine, autoCommand);
+
+    bindAutoStaging(firstCycle);
+    bindAutoStaging(secondCycle);
+    return routine;
+  }
+
+  public AutoRoutine leftBumpFast() {
+    AutoRoutine routine = m_autoFactory.newRoutine("leftBumpFast");
+    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1Fast", false);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2", false);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", false);
+
+    Command autoCommand = startFirstTrajectory(firstCycle)
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(secondCycle.cmd())
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(finishTrajectory.cmd());
+
+    bindRoutineStartup(routine, autoCommand);
+
+    bindAutoStaging(firstCycle);
+    bindAutoStaging(secondCycle);
+    return routine;
+  }
+
+  public AutoRoutine rightBumpFast() {
+    AutoRoutine routine = m_autoFactory.newRoutine("rightBumpFast");
+    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1Fast", true);
     AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2", true);
     AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", true);
 
