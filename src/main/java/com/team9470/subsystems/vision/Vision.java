@@ -24,7 +24,7 @@ public class Vision extends SubsystemBase {
     private final VisionDevice frontR = new VisionDevice("OV2311-R", FRONT_RIGHT_CAMERA_OFFSET);
     // private final VisionDevice back = new VisionDevice("back",
     // VisionConstants.BACK_CAMERA_OFFSET);
-    private boolean visionDisabled = false;
+    private boolean visionDisabled = Robot.isSimulation();
 
     private final List<VisionDevice> devices = List.of(frontL, frontR);
     private final TelemetryManager telemetry = TelemetryManager.getInstance();

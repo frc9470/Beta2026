@@ -74,6 +74,10 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     private static final double AUTO_STARTUP_OMEGA_THRESHOLD_RAD_PER_SEC = 0.10;
     private static final double AUTO_CENTERLINE_TOUCH_DISTANCE_M = Constants.RobotGeometry.kChoreoSideBumperMeters;
     private static final double SIM_LOOP_PERIOD = 0.005; // 5 ms
+    private static final double[] NO_WHEEL_FORCE_FEEDFORWARDS = new double[0];
+    private static final SwerveModule.DriveRequestType CHASSIS_SPEED_DRIVE_REQUEST_TYPE = Utils.isSimulation()
+            ? SwerveModule.DriveRequestType.OpenLoopVoltage
+            : SwerveModule.DriveRequestType.Velocity;
     /* Blue alliance sees forward as 0 degrees (toward red alliance wall) */
     private static final Rotation2d BLUE_ALLIANCE_PERSPECTIVE_ROTATION = Rotation2d.kZero;
     /* Red alliance sees forward as 180 degrees (toward blue alliance wall) */
@@ -81,7 +85,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 
     /* Swerve requests */
     private final SwerveRequest.ApplyFieldSpeeds applyFieldSpeeds = new SwerveRequest.ApplyFieldSpeeds()
-            .withDriveRequestType(SwerveModule.DriveRequestType.Velocity);
+            .withDriveRequestType(CHASSIS_SPEED_DRIVE_REQUEST_TYPE);
     private final PIDController pathXController = new PIDController(10, 0, 0);
     private final PIDController pathYController = new PIDController(10, 0, 0);
     private final PIDController pathThetaController = new PIDController(7, 0, 0);
@@ -91,7 +95,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
     private final SwerveRequest.SysIdSwerveRotation rotationCharacterization = new SwerveRequest.SysIdSwerveRotation();
     private final SwerveRequest.RobotCentric robotCentricRequest = new SwerveRequest.RobotCentric();
     private final SwerveRequest.FieldCentric fieldCentricRequest = new SwerveRequest.FieldCentric()
-            .withDriveRequestType(SwerveModule.DriveRequestType.Velocity);
+            .withDriveRequestType(CHASSIS_SPEED_DRIVE_REQUEST_TYPE);
     private final SwerveRequest.SwerveDriveBrake brakeRequest = new SwerveRequest.SwerveDriveBrake();
     private double activeDriveStatorCurrentLimitAmps = Double.NaN;
     private boolean turboDriveCurrentLimitEnabled = false;
@@ -343,7 +347,9 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
      * Used for COR-shifted SOTM driving.
      */
     public void driveFieldRelative(ChassisSpeeds fieldRelativeSpeeds) {
-        setControl(applyFieldSpeeds.withSpeeds(fieldRelativeSpeeds));
+        setControl(applyFieldSpeeds.withSpeeds(fieldRelativeSpeeds)
+                .withWheelForceFeedforwardsX(NO_WHEEL_FORCE_FEEDFORWARDS)
+                .withWheelForceFeedforwardsY(NO_WHEEL_FORCE_FEEDFORWARDS));
     }
 
     public void setTurboDriveCurrentLimitEnabled(boolean enabled) {
@@ -414,8 +420,8 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
         Translation2d poseError = desiredPose.getTranslation().minus(measuredPose.getTranslation());
         double headingErrorRad = MathUtil.angleModulus(
                 desiredPose.getRotation().getRadians() - measuredPose.getRotation().getRadians());
-        double[] moduleForcesX = sample.moduleForcesX();
-        double[] moduleForcesY = sample.moduleForcesY();
+        double[] moduleForcesX = Utils.isSimulation() ? NO_WHEEL_FORCE_FEEDFORWARDS : sample.moduleForcesX();
+        double[] moduleForcesY = Utils.isSimulation() ? NO_WHEEL_FORCE_FEEDFORWARDS : sample.moduleForcesY();
         lastAutoPathSampleTimestampSec = Timer.getTimestamp();
         markAutoCenterlineTouch(lastAutoPathSampleTimestampSec, desiredPose);
         telemetry.markDriveAutoFirstPathSample(lastAutoPathSampleTimestampSec);
@@ -522,8 +528,13 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
         double[] driveStatorCurrentAmps = new double[modules.length];
         for (int i = 0; i < modules.length; i++) {
             var driveMotor = modules[i].getDriveMotor();
-            driveVelocityRps[i] = driveMotor.getRotorVelocity().refresh().getValueAsDouble();
-            driveStatorCurrentAmps[i] = driveMotor.getStatorCurrent().refresh().getValueAsDouble();
+            if (Utils.isSimulation()) {
+                driveVelocityRps[i] = driveMotor.getRotorVelocity().getValueAsDouble();
+                driveStatorCurrentAmps[i] = driveMotor.getStatorCurrent().getValueAsDouble();
+            } else {
+                driveVelocityRps[i] = driveMotor.getRotorVelocity().refresh().getValueAsDouble();
+                driveStatorCurrentAmps[i] = driveMotor.getStatorCurrent().refresh().getValueAsDouble();
+            }
         }
         telemetry.publishDriveModuleElectrical(driveVelocityRps, driveStatorCurrentAmps);
 

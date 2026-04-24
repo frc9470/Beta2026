@@ -2,6 +2,7 @@ package com.team9470.subsystems.hopper;
 
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
+import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -120,18 +121,20 @@ public class Hopper extends SubsystemBase {
 
     @Override
     public void periodic() {
-        BaseStatusSignal.refreshAll(
-                hopperVelocity,
-                hopperCurrent,
-                hopperStatorCurrent,
-                feederLeftVelocity,
-                feederLeftSupplyCurrent,
-                feederLeftStatorCurrent,
-                feederLeftAppliedVolts,
-                feederRightVelocity,
-                feederRightSupplyCurrent,
-                feederRightStatorCurrent,
-                feederRightAppliedVolts);
+        if (!Utils.isSimulation()) {
+            BaseStatusSignal.refreshAll(
+                    hopperVelocity,
+                    hopperCurrent,
+                    hopperStatorCurrent,
+                    feederLeftVelocity,
+                    feederLeftSupplyCurrent,
+                    feederLeftStatorCurrent,
+                    feederLeftAppliedVolts,
+                    feederRightVelocity,
+                    feederRightSupplyCurrent,
+                    feederRightStatorCurrent,
+                    feederRightAppliedVolts);
+        }
         updateTopBeamBreakState();
 
         hopperMotor.setControl(hopperVoltageRequest.withOutput(commandedHopperVolts));

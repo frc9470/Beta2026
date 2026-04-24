@@ -102,12 +102,27 @@ class AutoTimingSimulationTest {
 
             Pose2d previousPose = Swerve.getInstance().getPose();
             double previousTimestampSec = Timer.getTimestamp();
+            double enableTimestampSec = previousTimestampSec;
+            double maxPoseX = previousPose.getX();
+            boolean debugPose = true;
             int maxCycles = (int) Math.ceil(maxTimeSec / kLoopPeriodSec);
             for (int cycle = 0; cycle < maxCycles; cycle++) {
                 runLoop(robot);
                 lastTimestampSec = Timer.getTimestamp();
 
                 Pose2d currentPose = Swerve.getInstance().getPose();
+                maxPoseX = Math.max(maxPoseX, currentPose.getX());
+                if (debugPose && cycle % 10 == 0) {
+                    var requiring = CommandScheduler.getInstance().requiring(Swerve.getInstance());
+                    System.out.printf(
+                            "    pose t=%.3f x=%.3f y=%.3f heading=%.1f maxX=%.3f swerveCmd=%s%n",
+                            lastTimestampSec - enableTimestampSec,
+                            currentPose.getX(),
+                            currentPose.getY(),
+                            currentPose.getRotation().getDegrees(),
+                            maxPoseX,
+                            requiring == null ? "<none>" : requiring.getName());
+                }
                 if (!Double.isFinite(liveCenterlineTouchTimestampSec) && referenceData != null) {
                     CrossingMeasurement centerlineTouch =
                             measureCenterlineTouch(previousPose, currentPose, previousTimestampSec, lastTimestampSec, referenceData);

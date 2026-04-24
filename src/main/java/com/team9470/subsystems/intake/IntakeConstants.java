@@ -14,7 +14,7 @@ public class IntakeConstants {
     public static final double kPivotGearRatio = 20.0;
 
     // Setpoints
-    public static final Angle kDeployAngle = Degrees.of(4.0); // Down/Floor
+    public static final Angle kDeployAngle = Degrees.of(0); // Down/Floor
     public static final Angle kDeployHighAngle = Degrees.of(-10.0); // Deploy +10 deg
     public static final Angle kAgitateMiddleAngle = Degrees.of(100.0); // Upper compression target during shot agitation
     public static final Angle kRetractAngle = Degrees.of(110.0); // Up/Stowed
