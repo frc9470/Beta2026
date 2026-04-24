@@ -324,11 +324,35 @@ public class Superstructure extends SubsystemBase {
     }
 
     /**
-     * Feed command - spins shooter at 500 RPM with max hood angle and feeds game
+     * Feed command - spins shooter at 500 RPM with min hood angle and feeds game
      * pieces.
-     * Intended for passing/feeding to a partner robot.
+     * Intended for passing/feeding to a partner robot with a lower trajectory.
      */
     public Command feedCommand() {
+        final double feedRps = 500.0 / 60.0; // 500 RPM -> RPS
+        final double minHoodRotations = com.team9470.subsystems.shooter.ShooterConstants
+                .launchRadToMechanismRotations(
+                        com.team9470.subsystems.shooter.ShooterConstants.kMinHoodAngle.in(
+                                edu.wpi.first.units.Units.Radians));
+        return Commands.runEnd(
+                () -> {
+                    shooter.setFlywheelSpeed(feedRps);
+                    shooter.setHoodAngle(minHoodRotations);
+                    shooter.setFiring(true);
+                    hopper.setRunning(true);
+                },
+                () -> {
+                    shooter.stop();
+                    hopper.stop();
+                }).withName("Superstructure Feed");
+    }
+
+    /**
+     * Feed command - spins shooter at 500 RPM with max hood angle and feeds game
+     * pieces.
+     * Intended for high-arc passing/feeding to a partner robot.
+     */
+    public Command feedHighCommand() {
         final double feedRps = 500.0 / 60.0; // 500 RPM -> RPS
         final double maxHoodRotations = com.team9470.subsystems.shooter.ShooterConstants
                 .launchRadToMechanismRotations(
@@ -344,7 +368,7 @@ public class Superstructure extends SubsystemBase {
                 () -> {
                     shooter.stop();
                     hopper.stop();
-                }).withName("Superstructure Feed");
+                }).withName("Superstructure Feed High");
     }
 
     /**

@@ -297,16 +297,8 @@ public class RobotContainer {
     // hood
     m_driverController.rightStick().onTrue(m_superstructure.homeIntakeAndHoodCommand());
 
-    // Left Stick (press/hold): Turbo anti-defense mode (raise drive slip current to
-    // 100A while held) without interrupting the active drive command.
-    m_driverController.leftStick().onTrue(
-        Commands.runOnce(() -> m_swerve.setTurboDriveCurrentLimitEnabled(true))
-            .ignoringDisable(true)
-            .withName("Drive Turbo Enable"));
-    m_driverController.leftStick().onFalse(
-        Commands.runOnce(() -> m_swerve.setTurboDriveCurrentLimitEnabled(false))
-            .ignoringDisable(true)
-            .withName("Drive Turbo Disable"));
+    // Left Stick (press/hold): Feed with max hood angle (high arc)
+    m_driverController.leftStick().whileTrue(m_superstructure.feedHighCommand());
 
     // POV Up (press): Stop shooter characterization in Test mode.
     testModeTrigger(m_driverController.povUp()).onTrue(
@@ -346,8 +338,8 @@ public class RobotContainer {
     m_autoChooser.addRoutine("rightBumpConservative", m_autos::rightBumpConservative);
     m_autoChooser.addRoutine("rightBumpRush", m_autos::rightBumpRush);
     m_autoChooser.addRoutine("leftBumpRush", m_autos::leftBumpRush);
-    m_autoChooser.addRoutine("leftBumpFast", m_autos::leftBumpFast);
-    m_autoChooser.addRoutine("rightBumpFast", m_autos::rightBumpFast);
+    m_autoChooser.addRoutine("leftBumpPrototype", m_autos::leftBumpPrototype);
+    m_autoChooser.addRoutine("rightBumpPrototype", m_autos::rightBumpPrototype);
     m_autoChooser.addCmd("blineTest", m_autos::blineTest);
     m_autoChooser.select("Do Nothing");
     SmartDashboard.putData("AutoChooser", m_autoChooser);

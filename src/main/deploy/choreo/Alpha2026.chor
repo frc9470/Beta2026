@@ -7,19 +7,48 @@
    "bumpSpeed":{
     "dimension":"LinVel",
     "var":{
-     "exp":"2.5 m / s",
-     "val":2.5
+     "exp":"2.25 m / s",
+     "val":2.25
     }
    },
    "intakeSpeed":{
     "dimension":"LinVel",
     "var":{
-     "exp":"2.5 m / s",
-     "val":2.5
+     "exp":"1.6 m / s",
+     "val":1.6
     }
    }
   },
-  "poses":{}
+  "poses":{
+   "bumpShootPos":{
+    "x":{
+     "exp":"3 m",
+     "val":3.0
+    },
+    "y":{
+     "exp":"5.5 m",
+     "val":5.5
+    },
+    "heading":{
+     "exp":"-45 deg",
+     "val":-0.7853981633974483
+    }
+   },
+   "bumpStartPos":{
+    "x":{
+     "exp":"4.497265815734863 m",
+     "val":4.497265815734863
+    },
+    "y":{
+     "exp":"7.560513496398926 m",
+     "val":7.560513496398926
+    },
+    "heading":{
+     "exp":"1.9270156803259126 rad",
+     "val":1.9270156803259129
+    }
+   }
+  }
  },
  "config":{
   "frontLeft":{
@@ -43,12 +72,12 @@
    }
   },
   "mass":{
-   "exp":"140 lbs",
-   "val":63.502931800000006
+   "exp":"141.46 lbs",
+   "val":64.1651766602
   },
   "inertia":{
-   "exp":"6.9377 kg m ^ 2",
-   "val":6.9377
+   "exp":"9.409 kg m ^ 2",
+   "val":9.409
   },
   "gearing":{
    "exp":"7.03",
@@ -63,12 +92,12 @@
    "val":546.637121724624
   },
   "tmax":{
-   "exp":"1.111 N * m",
-   "val":1.111
+   "exp":"1.5 N * m",
+   "val":1.5
   },
   "cof":{
-   "exp":"1",
-   "val":1.0
+   "exp":"1.5",
+   "val":1.5
   },
   "bumper":{
    "front":{
