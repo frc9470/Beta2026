@@ -1,6 +1,7 @@
 package com.team9470.subsystems;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,14 @@ class SuperstructureTest {
     void flywheelLatchKeepsReleaseReadyAfterShotStarts() {
         assertTrue(Superstructure.shouldTreatFlywheelAsReady(false, true, true));
         assertFalse(Superstructure.shouldTreatFlywheelAsReady(false, true, false));
+    }
+
+    @Test
+    void feedModeUsesWiderHeadingTolerance() {
+        double normalToleranceRad = Math.toRadians(2.5);
+
+        assertEquals(normalToleranceRad, Superstructure.getAlignmentToleranceRadForShot(false, normalToleranceRad));
+        assertEquals(Math.toRadians(10.0), Superstructure.getAlignmentToleranceRadForShot(true, normalToleranceRad));
     }
 
     @Test

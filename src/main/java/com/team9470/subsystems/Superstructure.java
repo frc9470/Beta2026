@@ -1,10 +1,19 @@
 package com.team9470.subsystems;
 
-import com.team9470.TunerConstants;
+import static com.team9470.subsystems.SuperstructureConstants.ActiveIdleBoost.*;
+import static com.team9470.subsystems.SuperstructureConstants.Aim.*;
+import static com.team9470.subsystems.SuperstructureConstants.AutoStage.*;
+import static com.team9470.subsystems.SuperstructureConstants.DriveAssist.*;
+import static com.team9470.subsystems.SuperstructureConstants.ManualIntake.*;
+import static com.team9470.subsystems.SuperstructureConstants.Preload.*;
+import static com.team9470.subsystems.SuperstructureConstants.ShotSafety.*;
+import static edu.wpi.first.units.Units.Meters;
+
 import com.team9470.subsystems.hopper.Hopper;
 import com.team9470.subsystems.intake.Intake;
 import com.team9470.subsystems.shooter.Shooter;
 import com.team9470.subsystems.shooter.ShooterConstants;
+import com.team9470.subsystems.swerve.Swerve;
 import com.team9470.telemetry.MatchTimingService;
 import com.team9470.telemetry.TelemetryManager;
 import com.team9470.telemetry.structs.HopperAutoStageSnapshot;
@@ -15,8 +24,6 @@ import com.team9470.telemetry.structs.TimedShotSnapshot;
 import com.team9470.util.AutoAim;
 import com.team9470.util.GeomUtil;
 import com.team9470.util.TimedFirePolicy;
-
-import com.team9470.subsystems.swerve.Swerve;
 
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
@@ -31,8 +38,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-
-import static edu.wpi.first.units.Units.Meters;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -62,85 +67,6 @@ public class Superstructure extends SubsystemBase {
     // Context suppliers (set by RobotContainer)
     private Supplier<Pose2d> poseSupplier = () -> new Pose2d();
     private Supplier<ChassisSpeeds> speedsSupplier = () -> new ChassisSpeeds();
-    private static final double kAimKpDefault = 12.0;
-    private static final double kAimKiDefault = 0.0;
-    private static final double kAimKdDefault = 1.0;
-    private static final double kAimAlignmentToleranceRadDefault = Math.toRadians(2.5);
-    private static final double kAimMaxIntegralContributionRadPerSecDefault = Math.toRadians(25.0);
-    private static final double kAimMaxAngularRateRadPerSec = Math.toRadians(TunerConstants.maxAngularVelocity);
-    private static final double kShootMaxPolarVelocityRadPerSec = 0.5;
-    private static final double kShootVelocityLimitMinRequestMps = 0.15;
-    private static final double kSotmFireSafetyMinSpeedMps = 0.35;
-    private static final double kSotmMaxAccelerationForFireMps2 = 3.5;
-    private static final double kSotmMaxOmegaForFireRadPerSec = Math.toRadians(220.0);
-    // COR shifting constants (ported from MechAdv DriveCommands)
-    private static final double kCORMinErrorDeg = 15.0;
-    private static final double kCORMaxErrorDeg = 30.0;
-    // O-Lock thresholds (ported from MechAdv DriveCommands)
-    private static final double kOLockSpeedThresholdMps = 0.1;
-    private static final double kOLockOmegaThresholdRadPerSec = 0.15;
-    private static final double kPreloadSettleVolts = -7.0;
-    private static final double kPreloadSettleSec = 0.50;
-    private static final double kPreloadStageHopperVolts = -3.5;
-    private static final double kPreloadStageFeederVolts = -1.5;
-    private static final double kPreloadTimeoutSec = 2.5;
-    private static final double kPreloadJamCurrentAmps = 18.0;
-    private static final double kPreloadJamVelocityRps = 1.0;
-    private static final double kPreloadJamDebounceSec = 0.20;
-    private static final int PRELOAD_PHASE_IDLE = 0;
-    private static final int PRELOAD_PHASE_ALREADY_STAGED = 1;
-    private static final int PRELOAD_PHASE_SETTLING = 2;
-    private static final int PRELOAD_PHASE_STAGING = 3;
-    private static final int PRELOAD_PHASE_DONE = 4;
-    private static final int PRELOAD_FAULT_NONE = 0;
-    private static final int PRELOAD_FAULT_TIMEOUT = 1;
-    private static final int PRELOAD_FAULT_JAM = 2;
-    private static final String kAutoStageEnabledKey = "Debug/HopperAutoStage/Enabled";
-    private static final String kAutoStageProbeVoltsKey = "Debug/HopperAutoStage/ProbeVolts";
-    private static final String kAutoStageProbeBaselineSecKey = "Debug/HopperAutoStage/ProbeBaselineSec";
-    private static final String kAutoStageProbePulseSecKey = "Debug/HopperAutoStage/ProbePulseSec";
-    private static final String kAutoStageProbeCurrentThresholdKey = "Debug/HopperAutoStage/ProbeCurrentThresholdAmps";
-    private static final String kAutoStageProbeVelocityThresholdKey = "Debug/HopperAutoStage/ProbeVelocityThresholdRps";
-    private static final String kAutoStageIntakeCurrentThresholdKey = "Debug/HopperAutoStage/IntakeCurrentThresholdAmps";
-    private static final String kAutoStageLoadScoreThresholdKey = "Debug/HopperAutoStage/LoadScoreThresholdSec";
-    private static final String kAutoStageLoadScoreDecayKey = "Debug/HopperAutoStage/LoadScoreDecayPerSec";
-    private static final String kAutoStageQuietTimeSecKey = "Debug/HopperAutoStage/QuietTimeSec";
-    private static final String kAutoStageCooldownSecKey = "Debug/HopperAutoStage/CooldownSec";
-    private static final boolean kAutoStageEnabledDefault = true;
-    private static final double kAutoStageProbeVoltsDefault = -2.5;
-    private static final double kAutoStageProbeBaselineSecDefault = 0.08;
-    private static final double kAutoStageProbePulseSecDefault = 0.20;
-    private static final double kAutoStageProbeCurrentThresholdAmpsDefault = 30.0;
-    private static final double kAutoStageProbeVelocityThresholdRpsDefault = 4.0;
-    private static final double kAutoStageIntakeCurrentThresholdAmpsDefault = 18.0;
-    private static final double kAutoStageLoadScoreThresholdSecDefault = 0.35;
-    private static final double kAutoStageLoadScoreDecayPerSecDefault = 0.20;
-    private static final double kAutoStageQuietTimeSecDefault = 0.25;
-    private static final double kAutoStageCooldownSecDefault = 1.50;
-    private static final double kAutoStageLoadScoreMaxSec = 3.0;
-    private static final int AUTO_STAGE_PHASE_IDLE = 0;
-    private static final int AUTO_STAGE_PHASE_READY = 1;
-    private static final int AUTO_STAGE_PHASE_PROBE_BASELINE = 2;
-    private static final int AUTO_STAGE_PHASE_PROBE_PULSE = 3;
-    private static final int AUTO_STAGE_PHASE_STAGE_COMMAND = 4;
-    private static final int AUTO_STAGE_PHASE_COMPLETE = 5;
-    private static final int AUTO_STAGE_REASON_NONE = 0;
-    private static final int AUTO_STAGE_REASON_DISABLED = 1;
-    private static final int AUTO_STAGE_REASON_NOT_TELEOP = 2;
-    private static final int AUTO_STAGE_REASON_SUPERSTRUCTURE_BUSY = 3;
-    private static final int AUTO_STAGE_REASON_HOPPER_BUSY = 4;
-    private static final int AUTO_STAGE_REASON_SHOOTER_FIRING = 5;
-    private static final int AUTO_STAGE_REASON_AGITATING = 6;
-    private static final int AUTO_STAGE_REASON_TOP_BLOCKED = 7;
-    private static final int AUTO_STAGE_REASON_EVIDENCE_LOW = 8;
-    private static final int AUTO_STAGE_REASON_WAITING_FOR_QUIET = 9;
-    private static final int AUTO_STAGE_REASON_COOLDOWN = 10;
-    private static final int AUTO_STAGE_REASON_PROBE_RUNNING = 11;
-    private static final int AUTO_STAGE_REASON_PROBE_REJECTED = 12;
-    private static final int AUTO_STAGE_REASON_STAGE_REQUESTED = 13;
-
-    /** Seconds before / after the active zone to keep the flywheel boosted. */
-    private static final double kIdleBoostPaddingSec = 3.0;
 
     private final PIDController aimYawController = createAimYawController();
     private double cachedAimKp = kAimKpDefault;
@@ -289,14 +215,12 @@ public class Superstructure extends SubsystemBase {
                 .withName("Superstructure Outtake");
     }
 
-    /** Threshold in seconds: presses shorter than this are treated as a tap. */
-    private static final double kManualIntakeTapThresholdSec = 0.30;
-
     /**
      * Manual intake control command (right bumper). Tap vs. hold is decided on
      * release so the two actions never overlap.
      * <ul>
-     * <li><b>Tap</b> (release before {@link #kManualIntakeTapThresholdSec}):
+     * <li><b>Tap</b> (release before
+     * {@link SuperstructureConstants.ManualIntake#kManualIntakeTapThresholdSec}):
      * stow the intake. Rollers are never overridden.</li>
      * <li><b>Hold</b> (past the threshold): stop the rollers while held; the
      * intake pivot stays where it was. No stow on release.</li>
@@ -657,44 +581,16 @@ public class Superstructure extends SubsystemBase {
         return controller;
     }
 
-    private static String autoStagePhaseLabel(int phaseCode) {
-        return switch (phaseCode) {
-            case AUTO_STAGE_PHASE_READY -> "Ready";
-            case AUTO_STAGE_PHASE_PROBE_BASELINE -> "ProbeBaseline";
-            case AUTO_STAGE_PHASE_PROBE_PULSE -> "ProbePulse";
-            case AUTO_STAGE_PHASE_STAGE_COMMAND -> "StageCommand";
-            case AUTO_STAGE_PHASE_COMPLETE -> "Complete";
-            case AUTO_STAGE_PHASE_IDLE -> "Idle";
-            default -> "Unknown";
-        };
-    }
-
-    private static String autoStageReasonLabel(int reasonCode) {
-        return switch (reasonCode) {
-            case AUTO_STAGE_REASON_NONE -> "None";
-            case AUTO_STAGE_REASON_DISABLED -> "Disabled";
-            case AUTO_STAGE_REASON_NOT_TELEOP -> "NotTeleop";
-            case AUTO_STAGE_REASON_SUPERSTRUCTURE_BUSY -> "SuperstructureBusy";
-            case AUTO_STAGE_REASON_HOPPER_BUSY -> "HopperBusy";
-            case AUTO_STAGE_REASON_SHOOTER_FIRING -> "ShooterFiring";
-            case AUTO_STAGE_REASON_AGITATING -> "Agitating";
-            case AUTO_STAGE_REASON_TOP_BLOCKED -> "TopBlocked";
-            case AUTO_STAGE_REASON_EVIDENCE_LOW -> "NoLoadEventYet";
-            case AUTO_STAGE_REASON_WAITING_FOR_QUIET -> "WaitingForQuiet";
-            case AUTO_STAGE_REASON_COOLDOWN -> "Cooldown";
-            case AUTO_STAGE_REASON_PROBE_RUNNING -> "ProbeRunning";
-            case AUTO_STAGE_REASON_PROBE_REJECTED -> "ProbeRejected";
-            case AUTO_STAGE_REASON_STAGE_REQUESTED -> "StageRequested";
-            default -> "Unknown";
-        };
-    }
-
     static boolean shouldRequestAutoStageFromProbe(
             double probeAverageCurrentAmps,
             double probeAverageVelocityRps,
             double currentThresholdAmps,
             double velocityThresholdRps) {
-        return probeAverageCurrentAmps >= currentThresholdAmps;
+        return SuperstructureLogic.shouldRequestAutoStageFromProbe(
+                probeAverageCurrentAmps,
+                probeAverageVelocityRps,
+                currentThresholdAmps,
+                velocityThresholdRps);
     }
 
     private void initSmartDashboardAimTuning() {
@@ -846,8 +742,8 @@ public class Superstructure extends SubsystemBase {
                 timeSinceLoadSec,
                 autoStageProbeAverageCurrentAmps,
                 autoStageProbeAverageVelocityRps),
-                autoStagePhaseLabel(autoStagePhaseCode),
-                autoStageReasonLabel(autoStageReasonCode));
+                SuperstructureLogic.autoStagePhaseLabel(autoStagePhaseCode),
+                SuperstructureLogic.autoStageReasonLabel(autoStageReasonCode));
     }
 
     private void resetAimYawController() {
@@ -933,21 +829,21 @@ public class Superstructure extends SubsystemBase {
     static boolean shouldAllowRelease(
             boolean canFire,
             boolean releaseStartedThisHold) {
-        // Once release has started, keep feeding until the command ends.
-        if (releaseStartedThisHold) {
-            return true;
-        }
-        return canFire;
+        return SuperstructureLogic.shouldAllowRelease(canFire, releaseStartedThisHold);
     }
 
     static boolean shouldTreatFlywheelAsReady(
             boolean flywheelAtSetpoint,
             boolean releaseStartedThisHold,
             boolean flywheelReadyLatchedThisHold) {
-        if (!releaseStartedThisHold) {
-            return flywheelAtSetpoint;
-        }
-        return flywheelReadyLatchedThisHold;
+        return SuperstructureLogic.shouldTreatFlywheelAsReady(
+                flywheelAtSetpoint,
+                releaseStartedThisHold,
+                flywheelReadyLatchedThisHold);
+    }
+
+    static double getAlignmentToleranceRadForShot(boolean shotIsFeedMode, double normalToleranceRad) {
+        return SuperstructureLogic.getAlignmentToleranceRadForShot(shotIsFeedMode, normalToleranceRad);
     }
 
     private String describeShooterReadinessBlock(boolean hoodAtSetpoint, boolean flywheelAtSetpoint) {
@@ -1107,8 +1003,9 @@ public class Superstructure extends SubsystemBase {
                     flywheelAtSetpoint,
                     releaseStartedThisHold.get(),
                     flywheelReadyLatchedThisHold.get());
-            boolean alignedForRelease = result.isAligned();
-            double alignmentToleranceRad = aimAlignmentToleranceRad;
+            boolean shotIsFeedMode = AutoAim.isFeedModeActive(robotPose);
+            double alignmentToleranceRad = getAlignmentToleranceRadForShot(shotIsFeedMode, aimAlignmentToleranceRad);
+            boolean alignedForRelease = Math.abs(result.rotationErrorRad()) < alignmentToleranceRad;
             boolean shooterReadyForRelease = hoodAtSetpoint && flywheelReadyForRelease;
             boolean shotValid = result.solution().isValid();
             boolean sotmFireSafe = isSotmFireSafe(result.solution(), robotSpeeds);
@@ -1116,7 +1013,6 @@ public class Superstructure extends SubsystemBase {
                     && shotValid
                     && shooterReadyForRelease
                     && sotmFireSafe;
-            boolean shotIsFeedMode = AutoAim.isFeedModeActive(robotPose);
             boolean topSensorBlocked = hopper.isTopBeamBreakBlocked();
             var timedFireDecision = TimedFirePolicy.evaluate(
                     true,
