@@ -70,7 +70,7 @@ class AutoTimingSimulationTest {
         robot.simulationInit();
 
         String autoName = System.getProperty(kAutoProperty, "leftTrench");
-        String targetTrajectoryName = System.getProperty(kTargetTrajectoryProperty, "leftTrenchToCenter");
+        String targetTrajectoryName = System.getProperty(kTargetTrajectoryProperty, "trenchToCenter");
         boolean mirrorTargetAcrossY = Boolean.parseBoolean(
                 System.getProperty(kMirrorTargetAcrossYProperty, "false"));
         double maxTimeSec = Double.parseDouble(System.getProperty(kMaxTimeSecProperty, "15.0"));

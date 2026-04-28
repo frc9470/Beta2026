@@ -1,5 +1,5 @@
 {
- "name":"leftTrenchToCenter",
+ "name":"trenchToCenter",
  "version":3,
  "snapshot":{
   "waypoints":[
@@ -44,7 +44,7 @@
    "radius":0.04953,
    "vmax":546.637121724624,
    "tmax":1.5,
-   "cof":1.5,
+   "cof":2.255,
    "bumper":{
     "front":0.381,
     "side":0.381,

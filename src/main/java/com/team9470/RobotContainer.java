@@ -332,7 +332,6 @@ public class RobotContainer {
     m_autoChooser.addRoutine("rightTrench", m_autos::rightTrench);
     m_autoChooser.addRoutine("shootPreloaded", m_autos::shootPreloaded);
     m_autoChooser.addRoutine("leftBump", m_autos::leftBump);
-    m_autoChooser.addRoutine("leftBumpDepot", m_autos::leftBumpDepot);
     m_autoChooser.addRoutine("rightBump", m_autos::rightBump);
     m_autoChooser.addRoutine("leftBumpConservative", m_autos::leftBumpConservative);
     m_autoChooser.addRoutine("rightBumpConservative", m_autos::rightBumpConservative);

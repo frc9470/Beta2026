@@ -111,8 +111,8 @@ public class Autos {
   private AutoRoutine buildTrenchRoutine(
       String routineName, boolean mirrorAcrossY, boolean driveToCenter) {
     AutoRoutine routine = m_autoFactory.newRoutine(routineName);
-    AutoTrajectory firstCycle = loadTrajectory(routine, "leftTrenchCycle1", mirrorAcrossY);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "leftTrenchCycle2", mirrorAcrossY);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "trenchCycle1", mirrorAcrossY);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "trenchCycle2", mirrorAcrossY);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
         .andThen(aimShootWithAgitate(kTrenchShotTimeoutSec))
@@ -120,7 +120,7 @@ public class Autos {
         .andThen(aimShootWithAgitate(kTrenchShotTimeoutSec));
 
     if (driveToCenter) {
-      AutoTrajectory toCenter = loadTrajectory(routine, "leftTrenchToCenter", mirrorAcrossY);
+      AutoTrajectory toCenter = loadTrajectory(routine, "trenchToCenter", mirrorAcrossY);
       autoCommand = autoCommand.andThen(toCenter.cmd());
     }
 
@@ -134,8 +134,8 @@ public class Autos {
       String finishTrajectoryName,
       boolean shootAfterFinish) {
     AutoRoutine routine = m_autoFactory.newRoutine(routineName);
-    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", mirrorAcrossY);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2", mirrorAcrossY);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "bumpCycle1", mirrorAcrossY);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "bumpCycle2", mirrorAcrossY);
     AutoTrajectory finishTrajectory = loadTrajectory(routine, finishTrajectoryName, mirrorAcrossY);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
@@ -176,22 +176,18 @@ public class Autos {
   }
 
   public AutoRoutine leftBump() {
-    return buildBumpRoutine("leftBump", false, "overLeftBump", false);
-  }
-
-  public AutoRoutine leftBumpDepot() {
-    return buildBumpRoutine("leftBumpDepot", false, "leftBumpDepot", true);
+    return buildBumpRoutine("leftBump", false, "overBump", false);
   }
 
   public AutoRoutine rightBump() {
-    return buildBumpRoutine("rightBump", true, "overLeftBump", false);
+    return buildBumpRoutine("rightBump", true, "overBump", false);
   }
 
   public AutoRoutine leftBumpConservative() {
     AutoRoutine routine = m_autoFactory.newRoutine("leftBumpConservative");
-    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", false);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Conservative", false);
-    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", false);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "bumpCycle1", false);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "bumpCycle2Conservative", false);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overBump", false);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
         .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
@@ -208,9 +204,9 @@ public class Autos {
 
   public AutoRoutine leftBumpRush() {
     AutoRoutine routine = m_autoFactory.newRoutine("leftBumpRush");
-    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1Rush", false);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2", false);
-    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", false);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "bumpCycle1Rush", false);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "bumpCycle2", false);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overBump", false);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
         .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
@@ -227,9 +223,9 @@ public class Autos {
 
   public AutoRoutine rightBumpRush() {
     AutoRoutine routine = m_autoFactory.newRoutine("rightBumpRush");
-    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1Rush", true);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2", true);
-    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", true);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "bumpCycle1Rush", true);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "bumpCycle2", true);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overBump", true);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
         .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
@@ -246,9 +242,9 @@ public class Autos {
 
   public AutoRoutine rightBumpConservative() {
     AutoRoutine routine = m_autoFactory.newRoutine("rightBumpConservative");
-    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", true);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Conservative", true);
-    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", true);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "bumpCycle1", true);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "bumpCycle2Conservative", true);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overBump", true);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
         .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
@@ -265,9 +261,9 @@ public class Autos {
 
   public AutoRoutine leftBumpPrototype() {
     AutoRoutine routine = m_autoFactory.newRoutine("leftBumpPrototype");
-    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", false);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Prototype", false);
-    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", false);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "bumpCycle1", false);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "bumpCycle2Prototype", false);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overBump", false);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
         .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
@@ -284,9 +280,9 @@ public class Autos {
 
   public AutoRoutine rightBumpPrototype() {
     AutoRoutine routine = m_autoFactory.newRoutine("rightBumpPrototype");
-    AutoTrajectory firstCycle = loadTrajectory(routine, "leftBumpCycle1", true);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "leftBumpCycle2Prototype", true);
-    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overLeftBump", true);
+    AutoTrajectory firstCycle = loadTrajectory(routine, "bumpCycle1", true);
+    AutoTrajectory secondCycle = loadTrajectory(routine, "bumpCycle2Prototype", true);
+    AutoTrajectory finishTrajectory = loadTrajectory(routine, "overBump", true);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
         .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))

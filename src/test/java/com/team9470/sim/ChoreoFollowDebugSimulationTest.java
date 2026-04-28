@@ -22,7 +22,7 @@ class ChoreoFollowDebugSimulationTest {
         DriverStationSim.setAutonomous(true);
         DriverStationSim.notifyNewData();
 
-        runPath("leftBumpCycle1Fast");
+        runPath("bumpCycle1Fast");
     }
 
     private static void runPath(String name) throws Exception {
