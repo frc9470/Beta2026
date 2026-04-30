@@ -14,24 +14,24 @@
    "intakeSpeed":{
     "dimension":"LinVel",
     "var":{
-     "exp":"1.6 m / s",
-     "val":1.6
+     "exp":"1.7 m / s",
+     "val":1.7
     }
    }
   },
   "poses":{
    "bumpShootPos":{
     "x":{
-     "exp":"3 m",
-     "val":3.0
+     "exp":"2.5 m",
+     "val":2.5
     },
     "y":{
      "exp":"5.5 m",
      "val":5.5
     },
     "heading":{
-     "exp":"-45 deg",
-     "val":-0.7853981633974483
+     "exp":"-34.5 deg",
+     "val":-0.6021385919380436
     }
    },
    "bumpStartPos":{

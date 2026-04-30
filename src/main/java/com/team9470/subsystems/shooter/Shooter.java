@@ -111,6 +111,7 @@ public class Shooter extends SubsystemBase {
     private boolean isFiring = false;
     private boolean needsHoming = true;
     private boolean activeIdleBoost = false;
+    private boolean flywheelIdleSuppressed = false;
     private ShooterCharacterizationSession characterizationSession;
     private ShooterCharacterizationCsvLogger characterizationLogger;
     private ShooterCharacterizationStatus characterizationStatus = ShooterCharacterizationStatus.idle();
@@ -298,18 +299,26 @@ public class Shooter extends SubsystemBase {
     static double computeClosedLoopFlywheelCommandRps(
             boolean needsHoming,
             double targetSpeedRPS,
-            boolean activeIdleBoost) {
+            boolean activeIdleBoost,
+            boolean flywheelIdleSuppressed) {
         if (needsHoming) {
             return 0.0;
         }
         if (targetSpeedRPS > kNonZeroSpeedEpsilonRPS) {
             return targetSpeedRPS;
         }
+        if (flywheelIdleSuppressed) {
+            return 0.0;
+        }
         return activeIdleBoost ? kBoostedIdleFlywheelRPS : kRestingFlywheelRPS;
     }
 
     private double getClosedLoopFlywheelCommandRps() {
-        return computeClosedLoopFlywheelCommandRps(needsHoming, targetSpeedRPS, activeIdleBoost);
+        return computeClosedLoopFlywheelCommandRps(
+                needsHoming,
+                targetSpeedRPS,
+                activeIdleBoost,
+                flywheelIdleSuppressed);
     }
 
     /**
@@ -319,6 +328,14 @@ public class Shooter extends SubsystemBase {
      */
     public void setActiveIdleBoost(boolean boost) {
         this.activeIdleBoost = boost;
+    }
+
+    /**
+     * Temporarily stop the flywheel idle command while no explicit setpoint is
+     * requested.
+     */
+    public void setFlywheelIdleSuppressed(boolean suppressed) {
+        this.flywheelIdleSuppressed = suppressed;
     }
 
     public void startCharacterization(ShooterCharacterizationConfig config, ShooterCharacterizationMode mode) {
