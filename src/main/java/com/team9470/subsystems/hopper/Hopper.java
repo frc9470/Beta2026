@@ -193,10 +193,19 @@ public class Hopper extends SubsystemBase {
         commandedFeederVolts = 0.0;
     }
 
+    static double scaledFeedVoltage(double voltageScale) {
+        return kFeedVoltage * Math.max(0.0, voltageScale);
+    }
+
     public void setRunning(boolean run) {
+        setRunning(run, 1.0);
+    }
+
+    public void setRunning(boolean run, double voltageScale) {
         if (run) {
-            setHopperVoltage(kFeedVoltage);
-            setFeederVoltage(kFeedVoltage);
+            double scaledFeedVoltage = scaledFeedVoltage(voltageScale);
+            setHopperVoltage(scaledFeedVoltage);
+            setFeederVoltage(scaledFeedVoltage);
         } else {
             stopAll();
         }

@@ -26,6 +26,8 @@ public class AutoAim {
     private static final double FEED_MODE_BLUE_X_THRESHOLD_M = 4.5;
     private static final double BASE_FEED_TARGET_X_M = 1.8;
     private static final double FEED_TARGET_Y_OFFSET_FROM_CENTER_M = 1.9952;
+    private static final double OVER_BUMP_FEED_TARGET_X_M = 4.6;
+    private static final double OVER_BUMP_FEED_TARGET_Y_M = 5.5;
 
     private static final Translation3d BASE_HUB_TARGET = new Translation3d(
             FieldConstants.Hub.topCenterPoint.getX(),
@@ -39,6 +41,10 @@ public class AutoAim {
             BASE_FEED_LEFT_TARGET.getX(),
             FieldConstants.fieldWidth - BASE_FEED_LEFT_TARGET.getY(),
             GOAL_Z);
+    private static final Translation3d BASE_OVER_BUMP_FEED_TARGET = new Translation3d(
+            OVER_BUMP_FEED_TARGET_X_M,
+            OVER_BUMP_FEED_TARGET_Y_M,
+            GOAL_Z);
 
     public static final Translation3d SHOOTER_OFFSET = new Translation3d(
             ShooterConstants.kShooterOffsetX,
@@ -48,6 +54,12 @@ public class AutoAim {
     private enum AimMode {
         HUB,
         FEED
+    }
+
+    public enum FeedTargetMode {
+        DEFAULT_LEFT,
+        ROBOT_SIDE,
+        OVER_BUMP
     }
 
     public record ShootingSolution(
@@ -97,21 +109,29 @@ public class AutoAim {
     }
 
     public static Translation3d getTarget(Pose2d robotPose, boolean useRobotSideForFeedTarget) {
+        return getTarget(robotPose, useRobotSideForFeedTarget ? FeedTargetMode.ROBOT_SIDE : FeedTargetMode.DEFAULT_LEFT);
+    }
+
+    public static Translation3d getTarget(Pose2d robotPose, FeedTargetMode feedTargetMode) {
         if (robotPose == null) {
             return getTarget();
         }
-        AimMode mode = getAimMode(robotPose);
+        AimMode mode = getAimMode(robotPose, feedTargetMode);
         Translation3d baseTarget = mode == AimMode.FEED
-                ? getFeedTarget(robotPose, useRobotSideForFeedTarget)
+                ? getFeedTarget(robotPose, feedTargetMode)
                 : BASE_HUB_TARGET;
         return AllianceFlipUtil.apply(baseTarget);
     }
 
     public static boolean isFeedModeActive(Pose2d robotPose) {
+        return isFeedModeActive(robotPose, FeedTargetMode.DEFAULT_LEFT);
+    }
+
+    public static boolean isFeedModeActive(Pose2d robotPose, FeedTargetMode feedTargetMode) {
         if (robotPose == null) {
             return false;
         }
-        return getAimMode(robotPose) == AimMode.FEED;
+        return getAimMode(robotPose, feedTargetMode) == AimMode.FEED;
     }
 
     public static boolean isSotmEnabled() {
@@ -126,8 +146,8 @@ public class AutoAim {
     }
 
     public static void publishModeTelemetry(Pose2d robotPose) {
-        SolverState nonSotm = solveNonSotm(robotPose, false);
-        SolverState sotm = solveSotm(robotPose, new ChassisSpeeds(), false, false);
+        SolverState nonSotm = solveNonSotm(robotPose, FeedTargetMode.DEFAULT_LEFT);
+        SolverState sotm = solveSotm(robotPose, new ChassisSpeeds(), FeedTargetMode.DEFAULT_LEFT, false);
         publishSolverTelemetry(nonSotm, sotm, kEnableSotm ? sotm : nonSotm);
     }
 
@@ -136,11 +156,17 @@ public class AutoAim {
     }
 
     public static double getDistanceMeters(Pose2d robotPose, boolean useRobotSideForFeedTarget) {
+        return getDistanceMeters(robotPose, useRobotSideForFeedTarget
+                ? FeedTargetMode.ROBOT_SIDE
+                : FeedTargetMode.DEFAULT_LEFT);
+    }
+
+    public static double getDistanceMeters(Pose2d robotPose, FeedTargetMode feedTargetMode) {
         if (robotPose == null) {
             return 0.0;
         }
         Translation2d shooterExitXY = getShooterExitXY(robotPose);
-        return shooterExitXY.getDistance(getTarget(robotPose, useRobotSideForFeedTarget).toTranslation2d());
+        return shooterExitXY.getDistance(getTarget(robotPose, feedTargetMode).toTranslation2d());
     }
 
     private static final int LOOKAHEAD_ITERATIONS = 20;
@@ -163,8 +189,16 @@ public class AutoAim {
             Pose2d robotPose,
             ChassisSpeeds robotSpeeds,
             boolean useRobotSideForFeedTarget) {
-        SolverState nonSotm = solveNonSotm(robotPose, useRobotSideForFeedTarget);
-        SolverState sotm = solveSotm(robotPose, robotSpeeds, useRobotSideForFeedTarget, true);
+        return calculate(robotPose, robotSpeeds,
+                useRobotSideForFeedTarget ? FeedTargetMode.ROBOT_SIDE : FeedTargetMode.DEFAULT_LEFT);
+    }
+
+    public static ShootingSolution calculate(
+            Pose2d robotPose,
+            ChassisSpeeds robotSpeeds,
+            FeedTargetMode feedTargetMode) {
+        SolverState nonSotm = solveNonSotm(robotPose, feedTargetMode);
+        SolverState sotm = solveSotm(robotPose, robotSpeeds, feedTargetMode, true);
         SolverState active = kEnableSotm ? sotm : nonSotm;
         publishSolverTelemetry(nonSotm, sotm, active);
         return active.solution();
@@ -175,7 +209,12 @@ public class AutoAim {
     }
 
     static ShootingSolution calculateNonSotm(Pose2d robotPose, boolean useRobotSideForFeedTarget) {
-        return solveNonSotm(robotPose, useRobotSideForFeedTarget).solution();
+        return calculateNonSotm(robotPose,
+                useRobotSideForFeedTarget ? FeedTargetMode.ROBOT_SIDE : FeedTargetMode.DEFAULT_LEFT);
+    }
+
+    static ShootingSolution calculateNonSotm(Pose2d robotPose, FeedTargetMode feedTargetMode) {
+        return solveNonSotm(robotPose, feedTargetMode).solution();
     }
 
     static ShootingSolution calculateSotm(Pose2d robotPose, ChassisSpeeds robotSpeeds) {
@@ -186,19 +225,27 @@ public class AutoAim {
             Pose2d robotPose,
             ChassisSpeeds robotSpeeds,
             boolean useRobotSideForFeedTarget) {
-        return solveSotm(robotPose, robotSpeeds, useRobotSideForFeedTarget, false).solution();
+        return calculateSotm(robotPose, robotSpeeds,
+                useRobotSideForFeedTarget ? FeedTargetMode.ROBOT_SIDE : FeedTargetMode.DEFAULT_LEFT);
     }
 
-    private static SolverState solveNonSotm(Pose2d robotPose, boolean useRobotSideForFeedTarget) {
+    static ShootingSolution calculateSotm(
+            Pose2d robotPose,
+            ChassisSpeeds robotSpeeds,
+            FeedTargetMode feedTargetMode) {
+        return solveSotm(robotPose, robotSpeeds, feedTargetMode, false).solution();
+    }
+
+    private static SolverState solveNonSotm(Pose2d robotPose, FeedTargetMode feedTargetMode) {
         if (robotPose == null) {
             return invalidSolverState(AimMode.HUB, 0.0, getTarget());
         }
 
-        SolverRequest request = createSolverRequest(robotPose, useRobotSideForFeedTarget);
+        SolverRequest request = createSolverRequest(robotPose, feedTargetMode);
         Translation2d aimPoint = request.fieldTarget().toTranslation2d();
         double distanceMeters = request.shooterExitXY().getDistance(aimPoint);
         double naiveAirTimeSec = sanitizeAirTimeSec(distanceMeters);
-        ShotParameter shot = lookupShot(request.mode(), distanceMeters).orElse(null);
+        ShotParameter shot = lookupShot(request.mode(), feedTargetMode, distanceMeters).orElse(null);
 
         return new SolverState(
                 request.mode(),
@@ -220,7 +267,7 @@ public class AutoAim {
     private static SolverState solveSotm(
             Pose2d robotPose,
             ChassisSpeeds robotSpeeds,
-            boolean useRobotSideForFeedTarget,
+            FeedTargetMode feedTargetMode,
             boolean updateMotionHistory) {
         if (robotPose == null || robotSpeeds == null) {
             if (updateMotionHistory) {
@@ -230,13 +277,13 @@ public class AutoAim {
         }
 
         SotmMotionState motionState = computeSotmMotionState(robotPose, robotSpeeds, updateMotionHistory);
-        SolverRequest request = createSolverRequest(motionState.predictedPose(), useRobotSideForFeedTarget);
+        SolverRequest request = createSolverRequest(motionState.predictedPose(), feedTargetMode);
         Translation2d baseTargetXY = request.fieldTarget().toTranslation2d();
         double distanceNoLookaheadMeters = request.shooterExitXY().getDistance(baseTargetXY);
         double naiveAirTimeSec = sanitizeAirTimeSec(distanceNoLookaheadMeters);
         Translation2d aimPoint = computeSotmAimPoint(request.shooterExitXY(), baseTargetXY, motionState);
         double distanceMeters = request.shooterExitXY().getDistance(aimPoint);
-        ShotParameter shot = lookupShot(request.mode(), distanceMeters).orElse(null);
+        ShotParameter shot = lookupShot(request.mode(), feedTargetMode, distanceMeters).orElse(null);
 
         return new SolverState(
                 request.mode(),
@@ -255,13 +302,13 @@ public class AutoAim {
                         shot));
     }
 
-    private static SolverRequest createSolverRequest(Pose2d robotPose, boolean useRobotSideForFeedTarget) {
-        AimMode mode = getAimMode(robotPose);
+    private static SolverRequest createSolverRequest(Pose2d robotPose, FeedTargetMode feedTargetMode) {
+        AimMode mode = getAimMode(robotPose, feedTargetMode);
         return new SolverRequest(
                 robotPose,
                 mode,
                 getRobotXBlueMeters(robotPose),
-                getTarget(robotPose, useRobotSideForFeedTarget),
+                getTarget(robotPose, feedTargetMode),
                 getShooterExitXY(robotPose));
     }
 
@@ -402,10 +449,16 @@ public class AutoAim {
                 * motionState.sotmBlend();
     }
 
-    private static Optional<ShotParameter> lookupShot(AimMode mode, double distanceMeters) {
-        return mode == AimMode.FEED
-                ? ShooterInterpolationMaps.getFeed(distanceMeters)
-                : ShooterInterpolationMaps.getHub(distanceMeters);
+    private static Optional<ShotParameter> lookupShot(
+            AimMode mode,
+            FeedTargetMode feedTargetMode,
+            double distanceMeters) {
+        if (mode != AimMode.FEED) {
+            return ShooterInterpolationMaps.getHub(distanceMeters);
+        }
+        return feedTargetMode == FeedTargetMode.OVER_BUMP
+                ? ShooterInterpolationMaps.getOverBumpFeed(distanceMeters)
+                : ShooterInterpolationMaps.getFeed(distanceMeters);
     }
 
     private static double sanitizeAirTimeSec(double distanceMeters) {
@@ -432,12 +485,18 @@ public class AutoAim {
         return vector.times(maxNorm / norm);
     }
 
-    private static AimMode getAimMode(Pose2d robotPose) {
+    private static AimMode getAimMode(Pose2d robotPose, FeedTargetMode feedTargetMode) {
+        if (feedTargetMode == FeedTargetMode.OVER_BUMP) {
+            return AimMode.FEED;
+        }
         return AllianceFlipUtil.applyX(robotPose.getX()) > FEED_MODE_BLUE_X_THRESHOLD_M ? AimMode.FEED : AimMode.HUB;
     }
 
-    private static Translation3d getFeedTarget(Pose2d robotPose, boolean useRobotSideForFeedTarget) {
-        if (!useRobotSideForFeedTarget || robotPose == null) {
+    private static Translation3d getFeedTarget(Pose2d robotPose, FeedTargetMode feedTargetMode) {
+        if (feedTargetMode == FeedTargetMode.OVER_BUMP) {
+            return BASE_OVER_BUMP_FEED_TARGET;
+        }
+        if (feedTargetMode != FeedTargetMode.ROBOT_SIDE || robotPose == null) {
             return BASE_FEED_LEFT_TARGET;
         }
         double robotYBlueMeters = AllianceFlipUtil.applyY(robotPose.getY());

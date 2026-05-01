@@ -136,6 +136,7 @@ public final class SuperstructureConstants {
     }
 
     public static final class ShotSafety {
+        public static final double kFeedFlywheelSetpointToleranceRps = 150.0 / 60.0;
         public static final double kShootMaxPolarVelocityRadPerSec = 0.5;
         public static final double kShootVelocityLimitMinRequestMps = 0.15;
         public static final double kSotmFireSafetyMinSpeedMps = 0.35;

@@ -9,7 +9,7 @@ public final class ShooterInterpolationMaps {
     private ShooterInterpolationMaps() {
     }
 
-    private static final double kFeedLaunchAngleMultiplier = 1.4;
+    private static final double kOverBumpFeedDistanceOffsetMeters = 3.0;
     private static final InterpolatingTreeMap<InterpolatingDouble, ShotParameter> kHubMap = new InterpolatingTreeMap<>();
     private static final InterpolatingTreeMap<InterpolatingDouble, ShotParameter> kFeedMap = new InterpolatingTreeMap<>();
 
@@ -83,9 +83,11 @@ public final class ShooterInterpolationMaps {
         if (parameter == null) {
             return Optional.empty();
         }
-        return Optional.of(new ShotParameter(
-                parameter.hoodCommandDeg() * kFeedLaunchAngleMultiplier,
-                parameter.flywheelRpm()));
+        return Optional.of(parameter);
+    }
+
+    public static Optional<ShotParameter> getOverBumpFeed(double distanceMeters) {
+        return getFeed(distanceMeters + kOverBumpFeedDistanceOffsetMeters);
     }
 
     public static void addFeedPoint(double distanceMeters, double hoodCommandDeg, double flywheelRpm) {

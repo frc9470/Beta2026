@@ -47,6 +47,8 @@ import java.util.function.Supplier;
  * high-level commands for coordinated behavior.
  */
 public class Superstructure extends SubsystemBase {
+    private static final double kOverBumpFeedReducedVoltageScale = 0.25;
+    private static final double kOverBumpFeedReducedVoltageMinRpm = 3000.0;
 
     private static Superstructure instance;
 
@@ -272,20 +274,18 @@ public class Superstructure extends SubsystemBase {
     }
 
     /**
-     * Feed command - spins shooter at 500 RPM with max hood angle and feeds game
+     * Feed command - spins shooter at 500 RPM with a near-max hood angle and feeds game
      * pieces.
      * Intended for high-arc passing/feeding to a partner robot.
      */
     public Command feedHighCommand() {
         final double feedRps = 500.0 / 60.0; // 500 RPM -> RPS
-        final double maxHoodRotations = com.team9470.subsystems.shooter.ShooterConstants
-                .launchRadToMechanismRotations(
-                        com.team9470.subsystems.shooter.ShooterConstants.kMaxHoodAngle.in(
-                                edu.wpi.first.units.Units.Radians));
+        final double highFeedHoodRotations = com.team9470.subsystems.shooter.ShooterConstants
+                .launchRadToMechanismRotations(Math.toRadians(37.0));
         return Commands.runEnd(
                 () -> {
                     shooter.setFlywheelSpeed(feedRps);
-                    shooter.setHoodAngle(maxHoodRotations);
+                    shooter.setHoodAngle(highFeedHoodRotations);
                     shooter.setFiring(true);
                     hopper.setRunning(true);
                 },
@@ -524,7 +524,17 @@ public class Superstructure extends SubsystemBase {
     }
 
     public AimResult getAimResult(Pose2d robotPose, ChassisSpeeds robotSpeeds, boolean useRobotSideForFeedTarget) {
-        var solution = AutoAim.calculate(robotPose, robotSpeeds, useRobotSideForFeedTarget);
+        return getAimResult(robotPose, robotSpeeds,
+                useRobotSideForFeedTarget
+                        ? AutoAim.FeedTargetMode.ROBOT_SIDE
+                        : AutoAim.FeedTargetMode.DEFAULT_LEFT);
+    }
+
+    public AimResult getAimResult(
+            Pose2d robotPose,
+            ChassisSpeeds robotSpeeds,
+            AutoAim.FeedTargetMode feedTargetMode) {
+        var solution = AutoAim.calculate(robotPose, robotSpeeds, feedTargetMode);
         double rotError = solution.targetRobotYaw()
                 .minus(robotPose.getRotation())
                 .getRadians();
@@ -553,6 +563,7 @@ public class Superstructure extends SubsystemBase {
             boolean hoodAtSetpoint,
             boolean flywheelAtSetpoint,
             boolean flywheelReadyForRelease,
+            double flywheelToleranceRps,
             boolean aligned,
             double alignmentToleranceRad,
             double rotationErrorRad,
@@ -752,6 +763,7 @@ public class Superstructure extends SubsystemBase {
 
     private static Translation2d limitTranslationForLaunch(
             Pose2d robotPose,
+            AutoAim.FeedTargetMode feedTargetMode,
             AutoAim.ShootingSolution solution,
             double requestedVxMps,
             double requestedVyMps) {
@@ -763,7 +775,7 @@ public class Superstructure extends SubsystemBase {
         if (requestedSpeed < kShootVelocityLimitMinRequestMps) {
             return requestedVelocity;
         }
-        if (AutoAim.isFeedModeActive(robotPose) || !solution.isValid()) {
+        if (AutoAim.isFeedModeActive(robotPose, feedTargetMode) || !solution.isValid()) {
             return requestedVelocity;
         }
 
@@ -846,6 +858,21 @@ public class Superstructure extends SubsystemBase {
         return SuperstructureLogic.getAlignmentToleranceRadForShot(shotIsFeedMode, normalToleranceRad);
     }
 
+    static double getFlywheelToleranceRpsForShot(boolean shotIsFeedMode, double normalToleranceRps) {
+        return shotIsFeedMode ? kFeedFlywheelSetpointToleranceRps : normalToleranceRps;
+    }
+
+    static boolean isFlywheelAtSetpointForShot(
+            boolean shotIsFeedMode,
+            double flywheelErrorRps,
+            double normalToleranceRps) {
+        return Math.abs(flywheelErrorRps) < getFlywheelToleranceRpsForShot(shotIsFeedMode, normalToleranceRps);
+    }
+
+    static double getOverBumpFeedVoltageScale(double flywheelRpm) {
+        return flywheelRpm > kOverBumpFeedReducedVoltageMinRpm ? kOverBumpFeedReducedVoltageScale : 1.0;
+    }
+
     private String describeShooterReadinessBlock(boolean hoodAtSetpoint, boolean flywheelAtSetpoint) {
         if (!shooter.isHomed()) {
             return "HoodNotHomed";
@@ -926,7 +953,7 @@ public class Superstructure extends SubsystemBase {
                 inputs.flywheelAtSetpoint(),
                 inputs.flywheelReadyForRelease(),
                 shooter.getFlywheelErrorRps(),
-                shooter.getFlywheelSetpointToleranceRps(),
+                inputs.flywheelToleranceRps(),
                 inputs.aligned(),
                 Math.toDegrees(inputs.rotationErrorRad()),
                 Math.toDegrees(inputs.alignmentToleranceRad()),
@@ -983,6 +1010,23 @@ public class Superstructure extends SubsystemBase {
             Supplier<Double> vxSupplier,
             Supplier<Double> vySupplier,
             boolean useRobotSideForFeedTarget) {
+        return aimAndShootCommand(
+                vxSupplier,
+                vySupplier,
+                useRobotSideForFeedTarget
+                        ? AutoAim.FeedTargetMode.ROBOT_SIDE
+                        : AutoAim.FeedTargetMode.DEFAULT_LEFT);
+    }
+
+    public Command overBumpFeedCommand(Supplier<Double> vxSupplier, Supplier<Double> vySupplier) {
+        return aimAndShootCommand(vxSupplier, vySupplier, AutoAim.FeedTargetMode.OVER_BUMP)
+                .withName("Superstructure OverBumpFeed");
+    }
+
+    private Command aimAndShootCommand(
+            Supplier<Double> vxSupplier,
+            Supplier<Double> vySupplier,
+            AutoAim.FeedTargetMode feedTargetMode) {
         Swerve swerve = Swerve.getInstance();
         AtomicBoolean armedDuringInactiveThisHold = new AtomicBoolean(false);
         AtomicBoolean timedReleaseStartedThisHold = new AtomicBoolean(false);
@@ -991,11 +1035,18 @@ public class Superstructure extends SubsystemBase {
         return Commands.run(() -> {
             Pose2d robotPose = poseSupplier.get();
             ChassisSpeeds robotSpeeds = speedsSupplier.get();
-            var result = getAimResult(robotPose, robotSpeeds, useRobotSideForFeedTarget);
+            var result = getAimResult(robotPose, robotSpeeds, feedTargetMode);
             shooter.setSetpoint(result.solution());
 
             boolean hoodAtSetpoint = shooter.isHoodAtSetpoint();
-            boolean flywheelAtSetpoint = shooter.isFlywheelAtSetpoint();
+            boolean shotIsFeedMode = AutoAim.isFeedModeActive(robotPose, feedTargetMode);
+            double flywheelToleranceRps = getFlywheelToleranceRpsForShot(
+                    shotIsFeedMode,
+                    shooter.getFlywheelSetpointToleranceRps());
+            boolean flywheelAtSetpoint = isFlywheelAtSetpointForShot(
+                    shotIsFeedMode,
+                    shooter.getFlywheelErrorRps(),
+                    shooter.getFlywheelSetpointToleranceRps());
             if (flywheelAtSetpoint) {
                 flywheelReadyLatchedThisHold.set(true);
             }
@@ -1003,7 +1054,6 @@ public class Superstructure extends SubsystemBase {
                     flywheelAtSetpoint,
                     releaseStartedThisHold.get(),
                     flywheelReadyLatchedThisHold.get());
-            boolean shotIsFeedMode = AutoAim.isFeedModeActive(robotPose);
             double alignmentToleranceRad = getAlignmentToleranceRadForShot(shotIsFeedMode, aimAlignmentToleranceRad);
             boolean alignedForRelease = Math.abs(result.rotationErrorRad()) < alignmentToleranceRad;
             boolean shooterReadyForRelease = hoodAtSetpoint && flywheelReadyForRelease;
@@ -1031,6 +1081,7 @@ public class Superstructure extends SubsystemBase {
             }
             Translation2d limitedTranslation = limitTranslationForLaunch(
                     robotPose,
+                    feedTargetMode,
                     result.solution(),
                     vxSupplier.get(),
                     vySupplier.get());
@@ -1051,7 +1102,10 @@ public class Superstructure extends SubsystemBase {
             }
             // Continuous fuel should pause immediately when the live release gate drops.
             shooter.setFiring(releaseAllowed);
-            hopper.setRunning(releaseAllowed);
+            double hopperVoltageScale = feedTargetMode == AutoAim.FeedTargetMode.OVER_BUMP
+                    ? getOverBumpFeedVoltageScale(result.solution().flywheelRpm())
+                    : 1.0;
+            hopper.setRunning(releaseAllowed, hopperVoltageScale);
             publishReleaseBlockTelemetry(!releaseAllowed, releaseBlockReason);
             publishReleaseConditionTelemetry(new ReleaseTelemetryInputs(
                     canFire,
@@ -1061,6 +1115,7 @@ public class Superstructure extends SubsystemBase {
                     hoodAtSetpoint,
                     flywheelAtSetpoint,
                     flywheelReadyForRelease,
+                    flywheelToleranceRps,
                     alignedForRelease,
                     alignmentToleranceRad,
                     result.rotationErrorRad(),
@@ -1177,7 +1232,14 @@ public class Superstructure extends SubsystemBase {
             shooter.setSetpoint(result.solution());
 
             boolean hoodAtSetpoint = shooter.isHoodAtSetpoint();
-            boolean flywheelAtSetpoint = shooter.isFlywheelAtSetpoint();
+            boolean shotIsFeedMode = AutoAim.isFeedModeActive(poseSupplier.get());
+            double flywheelToleranceRps = getFlywheelToleranceRpsForShot(
+                    shotIsFeedMode,
+                    shooter.getFlywheelSetpointToleranceRps());
+            boolean flywheelAtSetpoint = isFlywheelAtSetpointForShot(
+                    shotIsFeedMode,
+                    shooter.getFlywheelErrorRps(),
+                    shooter.getFlywheelSetpointToleranceRps());
             if (flywheelAtSetpoint) {
                 flywheelReadyLatchedThisHold.set(true);
             }
@@ -1210,6 +1272,7 @@ public class Superstructure extends SubsystemBase {
                     hoodAtSetpoint,
                     flywheelAtSetpoint,
                     flywheelReadyForRelease,
+                    flywheelToleranceRps,
                     true,
                     aimAlignmentToleranceRad,
                     result.rotationErrorRad(),
@@ -1226,7 +1289,7 @@ public class Superstructure extends SubsystemBase {
                     0.0,
                     0.0,
                     false,
-                    AutoAim.isFeedModeActive(poseSupplier.get())));
+                    shotIsFeedMode));
 
             publishTelemetry(
                     false,

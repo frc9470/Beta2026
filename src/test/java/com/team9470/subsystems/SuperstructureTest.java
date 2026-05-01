@@ -46,4 +46,21 @@ class SuperstructureTest {
         assertFalse(Superstructure.shouldRequestAutoStageFromProbe(10.0, 3.0, 12.0, 4.0));
         assertFalse(Superstructure.shouldRequestAutoStageFromProbe(14.0, 4.5, 12.0, 4.0));
     }
+
+    @Test
+    void overBumpFeedVoltageScaleDropsAboveThreeThousandRpm() {
+        assertEquals(1.0, Superstructure.getOverBumpFeedVoltageScale(3000.0), 1e-9);
+        assertEquals(0.25, Superstructure.getOverBumpFeedVoltageScale(3000.1), 1e-9);
+    }
+
+    @Test
+    void feedModeUsesRelaxedFlywheelTolerance() {
+        double normalToleranceRps = 1.0;
+
+        assertEquals(normalToleranceRps, Superstructure.getFlywheelToleranceRpsForShot(false, normalToleranceRps),
+                1e-9);
+        assertEquals(150.0 / 60.0, Superstructure.getFlywheelToleranceRpsForShot(true, normalToleranceRps), 1e-9);
+        assertFalse(Superstructure.isFlywheelAtSetpointForShot(false, 2.0, normalToleranceRps));
+        assertTrue(Superstructure.isFlywheelAtSetpointForShot(true, 2.0, normalToleranceRps));
+    }
 }
