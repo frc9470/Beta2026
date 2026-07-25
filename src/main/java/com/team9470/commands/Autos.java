@@ -214,11 +214,11 @@ public class Autos {
   }
 
   public AutoRoutine leftBump() {
-    return buildBumpRoutine("leftBump", false, "bumpToCenter", false);
+    return buildBumpRoutine("leftBump", false, "overBump", false);
   }
 
   public AutoRoutine rightBump() {
-    return buildBumpRoutine("rightBump", true, "bumpToCenter", false);
+    return buildBumpRoutine("rightBump", true, "overBump", false);
   }
 
   public AutoRoutine leftBumpConservative() {
@@ -227,7 +227,7 @@ public class Autos {
         false,
         "bumpCycle1",
         "bumpCycle2Conservative",
-        "bumpToCenter",
+        "overBump",
         false);
   }
 
@@ -237,7 +237,7 @@ public class Autos {
         false,
         "bumpCycle1Rush",
         "bumpCycle2",
-        "bumpToCenter",
+        "overBump",
         false);
   }
 
@@ -247,7 +247,7 @@ public class Autos {
         true,
         "bumpCycle1Rush",
         "bumpCycle2",
-        "bumpToCenter",
+        "overBump",
         false);
   }
 
@@ -257,7 +257,7 @@ public class Autos {
         true,
         "bumpCycle1",
         "bumpCycle2Conservative",
-        "bumpToCenter",
+        "overBump",
         false);
   }
 
@@ -267,7 +267,7 @@ public class Autos {
         false,
         "bumpCycle1Prototype",
         "bumpCycle2Prototype",
-        "bumpToCenter",
+        "overBump",
         false);
   }
 
@@ -277,7 +277,7 @@ public class Autos {
         true,
         "bumpCycle1Prototype",
         "bumpCycle2Prototype",
-        "bumpToCenter",
+        "overBump",
         false);
   }
 
