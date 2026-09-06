@@ -96,7 +96,7 @@ public final class SuperstructureConstants {
         public static final String kAutoStageQuietTimeSecKey = "Debug/HopperAutoStage/QuietTimeSec";
         public static final String kAutoStageCooldownSecKey = "Debug/HopperAutoStage/CooldownSec";
 
-        public static final boolean kAutoStageEnabledDefault = true;
+        public static final boolean kAutoStageEnabledDefault = false;
         public static final double kAutoStageProbeVoltsDefault = -2.5;
         public static final double kAutoStageProbeBaselineSecDefault = 0.08;
         public static final double kAutoStageProbePulseSecDefault = 0.20;

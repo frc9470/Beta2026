@@ -36,6 +36,7 @@ public class Autos {
     m_autoFactory = swerve.createAutoFactory();
     m_bLineBuilder = new FollowPath.Builder(
         swerve,
+        
         swerve::getPose,
         swerve::getChassisSpeeds,
         swerve::setChassisSpeeds,
@@ -177,7 +178,7 @@ public class Autos {
     AutoTrajectory finishTrajectory = loadTrajectory(routine, finishTrajectoryName, mirrorAcrossY);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
-        .andThen(aimShoot(kBumpShotTimeoutSec))
+        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
         .andThen(secondCycle.cmd())
         .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
         .andThen(finishTrajectory.cmd());
