@@ -178,7 +178,7 @@ public class Autos {
     AutoTrajectory finishTrajectory = loadTrajectory(routine, finishTrajectoryName, mirrorAcrossY);
 
     Command autoCommand = startFirstTrajectory(firstCycle)
-        .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
+        .andThen(aimShoot(kBumpShotTimeoutSec))
         .andThen(secondCycle.cmd())
         .andThen(aimShootWithAgitate(kBumpShotTimeoutSec))
         .andThen(finishTrajectory.cmd());
