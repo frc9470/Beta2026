@@ -30,6 +30,7 @@ public class Autos {
   private static final double kAutoStartupFlywheelSpinupDelaySec = 1.0;
   private static final double kTrenchShotTimeoutSec = 3.0;
   private static final double kBumpShotTimeoutSec = 3.5;
+  private static final double kFollowDelay = 3.5;
 
   public Autos(Swerve swerve) {
     m_swerve = swerve;
@@ -66,6 +67,10 @@ public class Autos {
     return Commands.deadline(Superstructure.getInstance().aimAndShootCommand().withTimeout(timeoutSec),
         Commands.waitSeconds(kAutoAgitateDelaySec)
             .andThen(Superstructure.getInstance().agitateIntakeCommand().withTimeout(agitateDurationSec)));
+  }
+
+  private static Command feed(double timeoutSec) {
+    return Commands.deadline(Superstructure.getInstance().feedCommand().withTimeout(timeoutSec));
   }
 
   private static void bindAutoStaging(AutoTrajectory trajectory) {
@@ -280,6 +285,34 @@ public class Autos {
         "bumpCycle2Prototype",
         "overBump",
         false);
+  }
+
+  public AutoRoutine followBumpLeft(){
+    AutoRoutine routine = m_autoFactory.newRoutine("followBumpLeft");
+    AutoTrajectory cycle1 = loadTrajectory(routine, "followBumpCycle1", false);
+    AutoTrajectory cycle2 = loadTrajectory(routine, "followBumpCycle2", false);
+    Command autoCommand = Commands.waitSeconds(kFollowDelay)
+      .andThen(startFirstTrajectory(cycle1))
+      .andThen(aimShoot(kBumpShotTimeoutSec))
+      .andThen(cycle2.cmd())
+      .andThen(feed(kBumpShotTimeoutSec));
+
+    bindRoutineStartup(routine, autoCommand);
+    return routine;
+  }
+
+  public AutoRoutine followBumpRight(){
+    AutoRoutine routine = m_autoFactory.newRoutine("followBumpRight");
+    AutoTrajectory cycle1 = loadTrajectory(routine, "followBumpCycle1", true);
+    AutoTrajectory cycle2 = loadTrajectory(routine, "followBumpCycle2", true);
+    Command autoCommand = Commands.waitSeconds(kFollowDelay)
+      .andThen(startFirstTrajectory(cycle1))
+      .andThen(aimShoot(kBumpShotTimeoutSec))
+      .andThen(cycle2.cmd())
+      .andThen(feed(kBumpShotTimeoutSec));
+
+    bindRoutineStartup(routine, autoCommand);
+    return routine;
   }
 
   // ==================== BLINE AUTO ROUTINES ====================
