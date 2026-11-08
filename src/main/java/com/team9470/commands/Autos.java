@@ -165,7 +165,7 @@ public class Autos {
         routineName,
         mirrorAcrossY,
         "bumpCycle1",
-        "bumpCycle2Side",
+        "bumpCycle2",
         finishTrajectoryName,
         shootAfterFinish);
   }
@@ -242,7 +242,7 @@ public class Autos {
         "leftBumpRush",
         false,
         "bumpCycle1Rush",
-        "bumpCycle2Side",
+        "bumpCycle2",
         "overBump",
         false);
   }
@@ -252,7 +252,7 @@ public class Autos {
         "rightBumpRush",
         true,
         "bumpCycle1Rush",
-        "bumpCycle2Side",
+        "bumpCycle2",
         "overBump",
         false);
   }
