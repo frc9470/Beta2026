@@ -4,13 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.team9470.telemetry.PracticeTimerTracker.DriverStationSample;
-import com.team9470.telemetry.PracticeTimerTracker.Phase;
-import com.team9470.telemetry.PracticeTimerTracker.Zone;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.DriverStation.MatchType;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+
+import com.team9470.telemetry.PracticeTimerTracker;
+import com.team9470.telemetry.PracticeTimerTracker.DriverStationSample;
+import com.team9470.telemetry.PracticeTimerTracker.Phase;
+import com.team9470.telemetry.PracticeTimerTracker.Zone;
 
 class PracticeTimerTrackerTest {
     private static DriverStationSample sample(

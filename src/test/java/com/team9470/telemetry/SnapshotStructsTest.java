@@ -2,6 +2,10 @@ package com.team9470.telemetry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import edu.wpi.first.util.struct.Struct;
+import java.nio.ByteBuffer;
+import org.junit.jupiter.api.Test;
+
 import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
 import com.team9470.telemetry.structs.DriveStatusSnapshot;
 import com.team9470.telemetry.structs.HopperAutoStageSnapshot;
@@ -9,18 +13,15 @@ import com.team9470.telemetry.structs.HopperPreloadSnapshot;
 import com.team9470.telemetry.structs.HopperSnapshot;
 import com.team9470.telemetry.structs.IntakeSnapshot;
 import com.team9470.telemetry.structs.PracticeTimerSnapshot;
-import com.team9470.telemetry.structs.ShotReleaseSnapshot;
 import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import com.team9470.telemetry.structs.ShooterSnapshot;
+import com.team9470.telemetry.structs.ShotReleaseSnapshot;
 import com.team9470.telemetry.structs.SimSnapshot;
 import com.team9470.telemetry.structs.SuperstructureSnapshot;
 import com.team9470.telemetry.structs.TimedShotSnapshot;
 import com.team9470.telemetry.structs.VisionCameraSnapshot;
 import com.team9470.telemetry.structs.VisionSnapshot;
 import com.team9470.telemetry.structs.YShotSnapshot;
-import edu.wpi.first.util.struct.Struct;
-import java.nio.ByteBuffer;
-import org.junit.jupiter.api.Test;
 
 class SnapshotStructsTest {
     private static <T> void assertRoundTrip(Struct<T> struct, T value) {

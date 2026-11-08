@@ -1,13 +1,5 @@
 package com.team9470.simulation;
 
-import com.team9470.FieldConstants;
-import com.team9470.subsystems.intake.Intake;
-import com.team9470.subsystems.swerve.Swerve;
-import com.team9470.subsystems.shooter.ShooterConstants;
-import com.team9470.telemetry.TelemetryManager;
-import com.team9470.telemetry.structs.SimSnapshot;
-import com.team9470.util.AutoAim;
-
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -24,6 +16,14 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.function.Supplier;
+
+import com.team9470.FieldConstants;
+import com.team9470.subsystems.intake.Intake;
+import com.team9470.subsystems.shooter.ShooterConstants;
+import com.team9470.subsystems.swerve.Swerve;
+import com.team9470.telemetry.TelemetryManager;
+import com.team9470.telemetry.structs.SimSnapshot;
+import com.team9470.util.AutoAim;
 
 /**
  * Manages all projectile simulation - spawning, physics, visualization.

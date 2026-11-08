@@ -1,25 +1,5 @@
 package com.team9470.telemetry;
 
-import com.team9470.FieldConstants;
-import com.team9470.Constants;
-import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
-import com.team9470.telemetry.structs.DriveStatusSnapshot;
-import com.team9470.telemetry.structs.HopperAutoStageSnapshot;
-import com.team9470.telemetry.structs.HopperPreloadSnapshot;
-import com.team9470.telemetry.structs.HopperSnapshot;
-import com.team9470.telemetry.structs.IntakeSnapshot;
-import com.team9470.telemetry.structs.PracticeTimerSnapshot;
-import com.team9470.telemetry.structs.ShotReleaseSnapshot;
-import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
-import com.team9470.telemetry.structs.ShooterSnapshot;
-import com.team9470.telemetry.structs.SimSnapshot;
-import com.team9470.telemetry.structs.SuperstructureSnapshot;
-import com.team9470.telemetry.structs.TimedShotSnapshot;
-import com.team9470.telemetry.structs.VisionCameraSnapshot;
-import com.team9470.telemetry.structs.VisionSnapshot;
-import com.team9470.telemetry.structs.YShotSnapshot;
-import com.team9470.util.AllianceFlipUtil;
-import com.team9470.util.TelemetryUtil;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -41,6 +21,27 @@ import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.networktables.StringPublisher;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.team9470.Constants;
+import com.team9470.FieldConstants;
+import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
+import com.team9470.telemetry.structs.DriveStatusSnapshot;
+import com.team9470.telemetry.structs.HopperAutoStageSnapshot;
+import com.team9470.telemetry.structs.HopperPreloadSnapshot;
+import com.team9470.telemetry.structs.HopperSnapshot;
+import com.team9470.telemetry.structs.IntakeSnapshot;
+import com.team9470.telemetry.structs.PracticeTimerSnapshot;
+import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
+import com.team9470.telemetry.structs.ShooterSnapshot;
+import com.team9470.telemetry.structs.ShotReleaseSnapshot;
+import com.team9470.telemetry.structs.SimSnapshot;
+import com.team9470.telemetry.structs.SuperstructureSnapshot;
+import com.team9470.telemetry.structs.TimedShotSnapshot;
+import com.team9470.telemetry.structs.VisionCameraSnapshot;
+import com.team9470.telemetry.structs.VisionSnapshot;
+import com.team9470.telemetry.structs.YShotSnapshot;
+import com.team9470.util.AllianceFlipUtil;
+import com.team9470.util.TelemetryUtil;
 
 public final class TelemetryManager {
     public static final int VALIDATION_OK = 0;

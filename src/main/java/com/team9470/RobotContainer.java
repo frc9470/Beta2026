@@ -5,11 +5,6 @@
 package com.team9470;
 
 import choreo.auto.AutoChooser;
-import com.team9470.commands.Autos;
-import com.team9470.commands.WheelRadiusCharacterization;
-import com.team9470.telemetry.MatchTimingService;
-import com.team9470.telemetry.TelemetryManager;
-import com.team9470.telemetry.structs.YShotSnapshot;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
@@ -18,20 +13,26 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
-import com.team9470.subsystems.swerve.Swerve;
+import com.ctre.phoenix6.swerve.SwerveModule;
+import com.ctre.phoenix6.swerve.SwerveRequest;
+import com.team9470.Constants.OperatorConstants;
+import com.team9470.commands.Autos;
+import com.team9470.commands.WheelRadiusCharacterization;
 import com.team9470.subsystems.Superstructure;
-import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationConfig;
-import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationMode;
 import com.team9470.subsystems.shooter.ShooterConstants;
 import com.team9470.subsystems.shooter.ShooterInterpolationMaps;
 import com.team9470.subsystems.shooter.ShotParameter;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationConfig;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationMode;
+import com.team9470.subsystems.swerve.Swerve;
+import com.team9470.subsystems.vision.Vision;
+import com.team9470.telemetry.MatchTimingService;
+import com.team9470.telemetry.TelemetryManager;
+import com.team9470.telemetry.structs.YShotSnapshot;
 import com.team9470.util.AutoAim;
-import com.ctre.phoenix6.swerve.SwerveModule;
-import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import com.team9470.Constants.OperatorConstants;
-import com.team9470.subsystems.vision.Vision;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.DoubleSupplier;
 import static edu.wpi.first.units.Units.*;
@@ -330,8 +331,6 @@ public class RobotContainer {
 
   private void configureAutonomous() {
     m_autoChooser.addRoutine("Do Nothing", m_autos::doNothing);
-    m_autoChooser.addRoutine("leftTrench", m_autos::leftTrench);
-    m_autoChooser.addRoutine("rightTrench", m_autos::rightTrench);
     m_autoChooser.addRoutine("shootPreloaded", m_autos::shootPreloaded);
     m_autoChooser.addRoutine("leftBump", m_autos::leftBump);
     m_autoChooser.addRoutine("rightBump", m_autos::rightBump);

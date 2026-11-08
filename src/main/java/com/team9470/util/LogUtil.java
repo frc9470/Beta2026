@@ -1,6 +1,5 @@
 package com.team9470.util;
 
-import com.team9470.telemetry.TelemetryManager;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Pose3d;
@@ -11,6 +10,8 @@ import edu.wpi.first.math.numbers.N2;
 import org.ejml.data.Complex_F64;
 import org.ejml.simple.SimpleEVD;
 import org.ejml.simple.SimpleMatrix;
+
+import com.team9470.telemetry.TelemetryManager;
 
 import java.util.HashMap;
 import java.util.List;

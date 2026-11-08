@@ -4,10 +4,6 @@
 
 package com.team9470;
 
-import com.team9470.subsystems.swerve.Swerve;
-import com.team9470.telemetry.MatchTimingService;
-import com.team9470.telemetry.PracticeTimerTracker;
-import com.team9470.telemetry.TelemetryManager;
 import edu.wpi.first.wpilibj.DataLogManager;
 import edu.wpi.first.units.Units;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -21,6 +17,11 @@ import edu.wpi.first.wpilibj2.command.WrapperCommand;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+
+import com.team9470.subsystems.swerve.Swerve;
+import com.team9470.telemetry.MatchTimingService;
+import com.team9470.telemetry.PracticeTimerTracker;
+import com.team9470.telemetry.TelemetryManager;
 
 public class Robot extends TimedRobot {
   private static final Path kUsbMountPath = Path.of("/u");

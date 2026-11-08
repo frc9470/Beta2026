@@ -9,7 +9,6 @@ import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.team254.lib.drivers.TalonFXFactory;
 import com.team254.lib.drivers.TalonUtil;
-
 import com.team9470.Ports;
 import com.team9470.Robot;
 import com.team9470.simulation.ProjectileSimulation;

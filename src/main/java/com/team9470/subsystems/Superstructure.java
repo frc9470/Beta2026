@@ -9,6 +9,24 @@ import static com.team9470.subsystems.SuperstructureConstants.Preload.*;
 import static com.team9470.subsystems.SuperstructureConstants.ShotSafety.*;
 import static edu.wpi.first.units.Units.Meters;
 
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.net.PortForwarder;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.Subsystem;
+import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
+
 import com.team9470.subsystems.hopper.Hopper;
 import com.team9470.subsystems.intake.Intake;
 import com.team9470.subsystems.shooter.Shooter;
@@ -24,23 +42,6 @@ import com.team9470.telemetry.structs.TimedShotSnapshot;
 import com.team9470.util.AutoAim;
 import com.team9470.util.GeomUtil;
 import com.team9470.util.TimedFirePolicy;
-
-import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.wpilibj.DriverStation;
-import edu.wpi.first.wpilibj.DriverStation.Alliance;
-import edu.wpi.first.wpilibj.Timer;
-import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
-import edu.wpi.first.wpilibj2.command.Command;
-import edu.wpi.first.wpilibj2.command.Commands;
-import edu.wpi.first.wpilibj2.command.Subsystem;
-import edu.wpi.first.wpilibj2.command.SubsystemBase;
-
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
 /**
  * Superstructure manages all mechanisms (shooter, intake, hopper) and provides
@@ -112,6 +113,7 @@ public class Superstructure extends SubsystemBase {
         shooter = new Shooter();
         intake = Intake.getInstance();
         hopper = Hopper.getInstance();
+        PortForwarder.add(5800, "photonvision.local", 5800);
         initSmartDashboardAimTuning();
         initSmartDashboardAutoStageTuning();
         publishPreloadState(false, PRELOAD_PHASE_IDLE, PRELOAD_FAULT_NONE);

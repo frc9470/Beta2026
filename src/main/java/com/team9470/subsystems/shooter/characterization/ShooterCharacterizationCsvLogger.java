@@ -1,6 +1,5 @@
 package com.team9470.subsystems.shooter.characterization;
 
-import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -8,6 +7,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+
+import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 
 public final class ShooterCharacterizationCsvLogger implements AutoCloseable {
     static final String HEADER = String.join(",",

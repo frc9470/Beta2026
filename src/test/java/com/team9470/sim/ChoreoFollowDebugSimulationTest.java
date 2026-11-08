@@ -3,13 +3,14 @@ package com.team9470.sim;
 import choreo.Choreo;
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
-import com.team9470.subsystems.swerve.Swerve;
 import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 import org.junit.jupiter.api.Test;
+
+import com.team9470.subsystems.swerve.Swerve;
 
 class ChoreoFollowDebugSimulationTest {
     @Test

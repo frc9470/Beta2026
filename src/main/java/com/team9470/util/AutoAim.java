@@ -2,12 +2,6 @@ package com.team9470.util;
 
 import static edu.wpi.first.units.Units.Meters;
 
-import com.team9470.FieldConstants;
-import com.team9470.subsystems.shooter.ShooterConstants;
-import com.team9470.subsystems.shooter.ShooterInterpolationMaps;
-import com.team9470.subsystems.shooter.ShotParameter;
-import com.team9470.telemetry.TelemetryManager;
-import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -16,6 +10,13 @@ import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import java.util.Optional;
+
+import com.team9470.FieldConstants;
+import com.team9470.subsystems.shooter.ShooterConstants;
+import com.team9470.subsystems.shooter.ShooterInterpolationMaps;
+import com.team9470.subsystems.shooter.ShotParameter;
+import com.team9470.telemetry.TelemetryManager;
+import com.team9470.telemetry.structs.AutoAimSolverSnapshot;
 
 public class AutoAim {
     private static final TelemetryManager telemetry = TelemetryManager.getInstance();

@@ -6,6 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import edu.wpi.first.math.geometry.Rotation2d;
 import org.junit.jupiter.api.Test;
 
+import com.team9470.util.AutoAim;
+import com.team9470.util.TimedFirePolicy;
+
 class TimedFirePolicyTest {
     private static AutoAim.ShootingSolution solution(double naiveAirTimeSec) {
         return new AutoAim.ShootingSolution(

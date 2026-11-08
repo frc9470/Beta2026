@@ -1,15 +1,15 @@
 package com.team9470.commands;
 
-import choreo.auto.AutoFactory;
-import choreo.auto.AutoRoutine;
-import choreo.auto.AutoTrajectory;
-
 import com.team9470.bline.FollowPath;
 import com.team9470.bline.JsonUtils;
 import com.team9470.bline.Path;
 import com.team9470.subsystems.Superstructure;
 import com.team9470.subsystems.swerve.Swerve;
 import com.team9470.telemetry.TelemetryManager;
+
+import choreo.auto.AutoFactory;
+import choreo.auto.AutoRoutine;
+import choreo.auto.AutoTrajectory;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotBase;
@@ -73,10 +73,10 @@ public class Autos {
     return Commands.deadline(Superstructure.getInstance().feedCommand().withTimeout(timeoutSec));
   }
 
-  private static void bindAutoStaging(AutoTrajectory trajectory) {
-    trajectory.atTime("staging")
-        .onTrue(Superstructure.getInstance().stagePreloadAutoCommand());
-  }
+  // private static void bindAutoStaging(AutoTrajectory trajectory) {
+  //   trajectory.atTime("staging")
+  //       .onTrue(Superstructure.getInstance().stagePreloadAutoCommand());
+  // }
 
   private Command instrumentSequenceStart(Command command) {
     return new WrapperCommand(command) {
@@ -136,25 +136,25 @@ public class Autos {
     return System.getProperty("autoSim.override." + trajectoryName, trajectoryName);
   }
 
-  private AutoRoutine buildTrenchRoutine(
-      String routineName, boolean mirrorAcrossY, boolean driveToCenter) {
-    AutoRoutine routine = m_autoFactory.newRoutine(routineName);
-    AutoTrajectory firstCycle = loadTrajectory(routine, "trenchCycle1", mirrorAcrossY);
-    AutoTrajectory secondCycle = loadTrajectory(routine, "trenchCycle2", mirrorAcrossY);
+  // private AutoRoutine buildTrenchRoutine(
+  //     String routineName, boolean mirrorAcrossY, boolean driveToCenter) {
+  //   AutoRoutine routine = m_autoFactory.newRoutine(routineName);
+  //   AutoTrajectory firstCycle = loadTrajectory(routine, "trenchCycle1", mirrorAcrossY);
+  //   AutoTrajectory secondCycle = loadTrajectory(routine, "trenchCycle2", mirrorAcrossY);
 
-    Command autoCommand = startFirstTrajectory(firstCycle)
-        .andThen(aimShoot(kTrenchShotTimeoutSec))
-        .andThen(secondCycle.cmd())
-        .andThen(aimShootWithAgitate(kTrenchShotTimeoutSec));
+  //   Command autoCommand = startFirstTrajectory(firstCycle)
+  //       .andThen(aimShoot(kTrenchShotTimeoutSec))
+  //       .andThen(secondCycle.cmd())
+  //       .andThen(aimShootWithAgitate(kTrenchShotTimeoutSec));
 
-    if (driveToCenter) {
-      AutoTrajectory toCenter = loadTrajectory(routine, "trenchToCenter", mirrorAcrossY);
-      autoCommand = autoCommand.andThen(toCenter.cmd());
-    }
+  //   if (driveToCenter) {
+  //     AutoTrajectory toCenter = loadTrajectory(routine, "trenchToCenter", mirrorAcrossY);
+  //     autoCommand = autoCommand.andThen(toCenter.cmd());
+  //   }
 
-    bindRoutineStartup(routine, autoCommand);
-    return routine;
-  }
+  //   bindRoutineStartup(routine, autoCommand);
+  //   return routine;
+  // }
 
   private AutoRoutine buildBumpRoutine(
       String routineName,
@@ -165,7 +165,7 @@ public class Autos {
         routineName,
         mirrorAcrossY,
         "bumpCycle1",
-        "bumpCycle2",
+        "bumpCycle2Side",
         finishTrajectoryName,
         shootAfterFinish);
   }
@@ -194,8 +194,8 @@ public class Autos {
 
     bindRoutineStartup(routine, autoCommand);
 
-    bindAutoStaging(firstCycle);
-    bindAutoStaging(secondCycle);
+    // bindAutoStaging(firstCycle);
+    // bindAutoStaging(secondCycle);
     return routine;
   }
 
@@ -205,13 +205,13 @@ public class Autos {
     return routine;
   }
 
-  public AutoRoutine rightTrench() {
-    return buildTrenchRoutine("rightTrench", true, true);
-  }
+  // public AutoRoutine rightTrench() {
+  //   return buildTrenchRoutine("rightTrench", true, true);
+  // }
 
-  public AutoRoutine leftTrench() {
-    return buildTrenchRoutine("leftTrench", false, true);
-  }
+  // public AutoRoutine leftTrench() {
+  //   return buildTrenchRoutine("leftTrench", false, true);
+  // }
 
   public AutoRoutine shootPreloaded() {
     AutoRoutine routine = m_autoFactory.newRoutine("shootPreloaded");
@@ -242,7 +242,7 @@ public class Autos {
         "leftBumpRush",
         false,
         "bumpCycle1Rush",
-        "bumpCycle2",
+        "bumpCycle2Side",
         "overBump",
         false);
   }
@@ -252,7 +252,7 @@ public class Autos {
         "rightBumpRush",
         true,
         "bumpCycle1Rush",
-        "bumpCycle2",
+        "bumpCycle2Side",
         "overBump",
         false);
   }

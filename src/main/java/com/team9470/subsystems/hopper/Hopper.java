@@ -1,5 +1,7 @@
 package com.team9470.subsystems.hopper;
 
+import static com.team9470.subsystems.hopper.HopperConstants.*;
+
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.Utils;
@@ -9,7 +11,6 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.team254.lib.drivers.TalonFXFactory;
 import com.team254.lib.drivers.TalonUtil;
-
 import com.team9470.Ports;
 import com.team9470.telemetry.TelemetryManager;
 import com.team9470.telemetry.structs.HopperSnapshot;
@@ -21,8 +22,6 @@ import edu.wpi.first.units.measure.Current;
 import edu.wpi.first.units.measure.Voltage;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-
-import static com.team9470.subsystems.hopper.HopperConstants.*;
 
 /**
  * Hopper subsystem - high volume game piece feed to shooter.

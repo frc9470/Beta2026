@@ -7,11 +7,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import choreo.Choreo;
 import choreo.trajectory.SwerveSample;
 import choreo.trajectory.Trajectory;
-import com.team9470.FieldConstants;
-import com.team9470.Robot;
-import com.team9470.bline.FlippingUtil;
-import com.team9470.subsystems.swerve.Swerve;
-import com.team9470.subsystems.vision.Vision;
 import edu.wpi.first.hal.AllianceStationID;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.geometry.Pose2d;
@@ -24,6 +19,12 @@ import edu.wpi.first.wpilibj.simulation.DriverStationSim;
 import edu.wpi.first.wpilibj.simulation.SendableChooserSim;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import org.junit.jupiter.api.Test;
+
+import com.team9470.FieldConstants;
+import com.team9470.Robot;
+import com.team9470.bline.FlippingUtil;
+import com.team9470.subsystems.swerve.Swerve;
+import com.team9470.subsystems.vision.Vision;
 
 class AutoTimingSimulationTest {
     private static final double kLoopPeriodSec = 0.02;

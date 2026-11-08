@@ -9,10 +9,11 @@ import com.ctre.phoenix6.swerve.SwerveDrivetrain;
 import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants.ClosedLoopOutputType;
+import com.team9470.subsystems.swerve.Swerve;
 // import com.ctre.phoenix6.swerve.SwerveModuleConstants.DriveMotorArrangement;
 // import com.ctre.phoenix6.swerve.SwerveModuleConstants.SteerMotorArrangement;
 import com.ctre.phoenix6.swerve.SwerveModuleConstantsFactory;
-import com.team9470.subsystems.swerve.Swerve;
+
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.numbers.N1;
@@ -60,11 +61,11 @@ public class TunerConstants {
         private static final SwerveModuleConstants.SteerFeedbackType kSteerFeedbackType = SwerveModuleConstants.SteerFeedbackType.FusedCANcoder;
         // The stator current at which the wheels start to slip;
         // This needs to be tuned to your individual robot
-        public static final Current kNominalSlipCurrent = Amps.of(60);
-        public static final Current kTurboSlipCurrent = Amps.of(120);
+        public static final Current kNominalSlipCurrent = Amps.of(40);
+        public static final Current kTurboSlipCurrent = Amps.of(80);
         // Keep drive/steer limits explicit to avoid brownouts while preserving
         // traction.
-        private static final Current kSteerStatorCurrentLimit = Amps.of(60);
+        private static final Current kSteerStatorCurrentLimit = Amps.of(40);
         // Initial configs for the drive and steer motors and the azimuth encoder; these
         // cannot be null.
         // Some configs will be overwritten; check the `with*InitialConfigs()` API

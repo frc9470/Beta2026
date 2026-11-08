@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import org.junit.jupiter.api.Test;
 
+import com.team9470.util.TelemetryUtil;
+
 class TelemetryUtilTest {
     @Test
     void publishDoubleSetsUnitAndUnitsProperties() {

@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.junit.jupiter.api.Test;
 
+import com.team9470.subsystems.shooter.Shooter;
+
 class ShooterTest {
     @Test
     void closedLoopFlywheelCommandStopsWhenHoming() {

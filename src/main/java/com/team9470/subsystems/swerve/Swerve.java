@@ -10,19 +10,15 @@ import com.ctre.phoenix6.swerve.SwerveDrivetrainConstants;
 import com.ctre.phoenix6.swerve.SwerveModule;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import com.ctre.phoenix6.swerve.SwerveRequest;
-// import com.pathplanner.lib.auto.AutoBuilder;
-// import com.pathplanner.lib.config.PIDConstants;
-// import com.pathplanner.lib.config.RobotConfig;
-// import com.pathplanner.lib.controllers.PPHolonomicDriveController;
-
-import com.ctre.phoenix6.configs.Slot0Configs;
 import com.team9470.Constants;
 import com.team9470.FieldConstants;
-import com.team9470.TunerConstants;
 import com.team9470.Telemetry;
+import com.team9470.TunerConstants;
 import com.team9470.TunerConstants.TunerSwerveDrivetrain;
-import com.team9470.telemetry.TelemetryManager;
 import com.team9470.subsystems.vision.VisionPoseAcceptor;
+import com.team9470.telemetry.TelemetryManager;
+import com.ctre.phoenix6.configs.Slot0Configs;
+
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.controller.PIDController;

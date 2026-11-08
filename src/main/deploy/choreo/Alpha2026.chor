@@ -4,11 +4,18 @@
  "type":"Swerve",
  "variables":{
   "expressions":{
+   "bumpCrossOffset":{
+    "dimension":"Length",
+    "var":{
+     "exp":"2.2 m",
+     "val":2.2
+    }
+   },
    "bumpSpeed":{
     "dimension":"LinVel",
     "var":{
-     "exp":"2.25 m / s",
-     "val":2.25
+     "exp":"2.75 m / s",
+     "val":2.75
     }
    },
    "intakeSpeed":{
@@ -20,6 +27,20 @@
    }
   },
   "poses":{
+   "bumpCrossPos":{
+    "x":{
+     "exp":"5.8 m",
+     "val":5.8
+    },
+    "y":{
+     "exp":"5.3 m",
+     "val":5.3
+    },
+    "heading":{
+     "exp":"270 deg",
+     "val":4.71238898038469
+    }
+   },
    "bumpShootPos":{
     "x":{
      "exp":"2.5 m",

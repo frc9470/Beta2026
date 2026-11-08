@@ -11,13 +11,6 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Subsystem;
-import com.team9470.bline.Path.PathElement;
-import com.team9470.bline.Path.PathElementConstraint;
-import com.team9470.bline.Path.EventTrigger;
-import com.team9470.bline.Path.RotationTarget;
-import com.team9470.bline.Path.RotationTargetConstraint;
-import com.team9470.bline.Path.TranslationTarget;
-import com.team9470.bline.Path.TranslationTargetConstraint;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -27,6 +20,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+
+import com.team9470.bline.Path.EventTrigger;
+import com.team9470.bline.Path.PathElement;
+import com.team9470.bline.Path.PathElementConstraint;
+import com.team9470.bline.Path.RotationTarget;
+import com.team9470.bline.Path.RotationTargetConstraint;
+import com.team9470.bline.Path.TranslationTarget;
+import com.team9470.bline.Path.TranslationTargetConstraint;
 
 /**
  * A WPILib Command that follows a {@link Path} using PID controllers for translation and rotation.

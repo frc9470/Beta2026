@@ -1,10 +1,11 @@
 package com.team9470.simulation;
 
-import com.team9470.FieldConstants;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.math.util.Units;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.team9470.FieldConstants;
 import com.team9470.subsystems.intake.IntakeConstants;
 
 public class PhysicsSim {

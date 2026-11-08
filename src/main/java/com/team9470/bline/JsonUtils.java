@@ -3,16 +3,17 @@ package com.team9470.bline;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.wpilibj.Filesystem;
-import com.team9470.bline.Path.PathElement;
-import com.team9470.bline.Path.EventTrigger;
-import com.team9470.bline.Path.RotationTarget;
-import com.team9470.bline.Path.TranslationTarget;
-import com.team9470.bline.Path.Waypoint;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
+import com.team9470.bline.Path.EventTrigger;
+import com.team9470.bline.Path.PathElement;
+import com.team9470.bline.Path.RotationTarget;
+import com.team9470.bline.Path.TranslationTarget;
+import com.team9470.bline.Path.Waypoint;
 
 import java.io.BufferedReader;
 import java.io.File;

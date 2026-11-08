@@ -1,7 +1,8 @@
 package com.team9470.subsystems.shooter.characterization;
 
-import com.team9470.subsystems.shooter.ShooterConstants;
 import java.util.Arrays;
+
+import com.team9470.subsystems.shooter.ShooterConstants;
 
 public record ShooterCharacterizationConfig(
         double[] rpmPlateaus,

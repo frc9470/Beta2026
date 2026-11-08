@@ -1,11 +1,11 @@
 package com.team9470.subsystems.vision;
 
 import com.ctre.phoenix6.Utils;
-
 import com.team9470.FieldConstants;
 import com.team9470.subsystems.swerve.Swerve;
 import com.team9470.telemetry.TelemetryManager;
 import com.team9470.telemetry.structs.VisionCameraSnapshot;
+
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.Nat;

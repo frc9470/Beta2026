@@ -2,8 +2,11 @@ package com.team9470.subsystems.shooter.characterization;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 import org.junit.jupiter.api.Test;
+
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationCsvLogger;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationMode;
+import com.team9470.telemetry.structs.ShooterCharacterizationSnapshot;
 
 class ShooterCharacterizationCsvLoggerTest {
     @Test

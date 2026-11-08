@@ -6,6 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationConfig;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationMode;
+import com.team9470.subsystems.shooter.characterization.ShooterCharacterizationSession;
+
 class ShooterCharacterizationSessionTest {
     @Test
     void velocitySweepTransitionsAcrossSegments() {

@@ -1,10 +1,5 @@
 package com.team9470.subsystems.vision;
 
-import com.team9470.FieldConstants;
-import com.team9470.Robot;
-import com.team9470.telemetry.TelemetryManager;
-import com.team9470.telemetry.structs.VisionSnapshot;
-import com.team9470.subsystems.swerve.Swerve;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.photonvision.PhotonCamera;
@@ -12,10 +7,16 @@ import org.photonvision.simulation.PhotonCameraSim;
 import org.photonvision.simulation.SimCameraProperties;
 import org.photonvision.simulation.VisionSystemSim;
 
-import java.util.List;
+import com.team9470.FieldConstants;
+import com.team9470.Robot;
+import com.team9470.subsystems.swerve.Swerve;
+import com.team9470.telemetry.TelemetryManager;
+import com.team9470.telemetry.structs.VisionSnapshot;
 
 import static com.team9470.subsystems.vision.VisionConstants.FRONT_LEFT_CAMERA_OFFSET;
 import static com.team9470.subsystems.vision.VisionConstants.FRONT_RIGHT_CAMERA_OFFSET;
+
+import java.util.List;
 
 public class Vision extends SubsystemBase {
     private static Vision instance;

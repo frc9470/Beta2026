@@ -1,9 +1,10 @@
 package com.team9470.telemetry;
 
-import com.team9470.telemetry.structs.PracticeTimerSnapshot;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.DriverStation.MatchType;
 import java.util.Optional;
+
+import com.team9470.telemetry.structs.PracticeTimerSnapshot;
 
 /**
  * Tracks DS-driven practice mode phases and publishes a dashboard-friendly
